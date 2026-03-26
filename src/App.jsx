@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SplashScreen from './components/SplashScreen'
 import LoginPage from './components/LoginPage'
 import SignupPage from './components/SignupPage'
@@ -13,6 +13,44 @@ import Settings from './components/Settings'
 
 export default function App() {
   const [page, setPage] = useState('splash')
+  const [message, setMessage] = useState("")
+  
+  // New Customer Form State
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  const handleAddCustomerSubmit = async () => {
+    console.log("Sending data:", { name, email });
+
+    try {
+      const response = await fetch("http://localhost:8080/api/customers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email }),
+      });
+
+      const data = await response.json();
+      console.log("Response from backend:", data);
+      alert("Customer added successfully!");
+      setPage('dashboard'); // Return to dashboard after adding
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetch("http://localhost:8080/api/test")
+      .then((res) => res.text())
+      .then((data) => {
+        console.log("Backend Response:", data); // 🔥 check console
+        setMessage(data);
+      })
+      .catch((err) => {
+        console.error("Error:", err);
+      });
+  }, []);
 
   const handleGetStarted = () => {
     setPage('login')
@@ -120,6 +158,44 @@ export default function App() {
     return <Settings onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
   }
 
+  if (page === 'addCustomer') {
+    return (
+      <div style={{ padding: "20px" }}>
+        <h1>Add Customer</h1>
+
+        <input
+          type="text"
+          placeholder="Enter name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ padding: "8px", margin: "5px 0" }}
+        />
+
+        <br /><br />
+
+        <input
+          type="email"
+          placeholder="Enter email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ padding: "8px", margin: "5px 0" }}
+        />
+
+        <br /><br />
+
+        <button 
+          onClick={handleAddCustomerSubmit}
+          style={{ padding: "8px 16px", cursor: "pointer" }}
+        >
+          Submit
+        </button>
+        <br /><br />
+        <button onClick={() => setPage('dashboard')}>Back to Dashboard</button>
+      </div>
+    );
+  }
+
   // Fallback - should not reach here
   return <SplashScreen onGetStarted={handleGetStarted} />
 }
+
