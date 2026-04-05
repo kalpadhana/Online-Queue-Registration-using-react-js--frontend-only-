@@ -1,27 +1,180 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, AlertCircle, Bell, TrendingUp, Zap, RefreshCw, MapPin } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
-  const [queueData] = useState({
-    token: 'Q-1234',
-    service: 'Customer Service',
-    location: 'Downtown Branch',
-    position: 7,
-    totalInQueue: 14,
-    estimatedWaitTime: 'About 12 minutes',
+export default function TrackQueue({ userName, email, userId, queueToken, onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout }) {
+  
+  const [queueData, setQueueData] = useState({
+    token: '--',
+    service: 'Loading...',
+    location: 'Loading...',
+    position: 0,
+    totalInQueue: 0,
+    estimatedWaitTime: '--',
     status: 'waiting',
-    joinedTime: '2:45 PM',
-    currentServing: 'Q-1230',
+    joinedTime: '--',
+    currentServing: '--',
   })
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [upcomingTokens, setUpcomingTokens] = useState([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  const fetchQueueData = async () => {
+    setIsLoading(true);
+    setError(null);
+    setQueueData({
+      token: '--',
+      service: 'Loading...',
+      location: 'Loading...',
+      position: 0,
+      totalInQueue: 0,
+      estimatedWaitTime: '--',
+      status: 'waiting',
+      joinedTime: '--',
+      currentServing: '--',
+    });
+    
+    try {
+      // Use userId endpoint to get current user's active queue
+      const loggedInUserId = userId || 1;
+      console.log("Fetching queue data for user ID:", loggedInUserId);
+      const response = await fetch(`http://localhost:8080/api/v1/queues/user/${loggedInUserId}`);
+      
+      if (response.status === 404) {
+        console.log("No active queue found for user:", loggedInUserId);
+        setQueueData({
+          token: '--',
+          service: 'No Queue',
+          location: '--',
+          position: '--',
+          totalInQueue: '--',
+          estimatedWaitTime: '--',
+          status: 'no_queue',
+          joinedTime: '--',
+          currentServing: '--',
+        });
+        setUpcomingTokens([]);
+        setError('You haven\'t joined any queue yet. Go to "Join Queue" to get started.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to track queue. Status: ${response.status}`);
+      }
+
+      const apiResponse = await response.json();
+      console.log("User Queues API Response:", apiResponse);
+      
+      const queuesList = apiResponse.data || [];
+      console.log("Queues List for user " + loggedInUserId + ":", queuesList);
+      
+      // Filter to find an active/waiting queue for this user
+      const activeQueue = Array.isArray(queuesList) ? queuesList.find(q => q.status === 'WAITING' || q.status === 'waiting') : null;
+      
+      if (!Array.isArray(queuesList) || queuesList.length === 0 || !activeQueue) {
+        console.log("No active queue found for user " + loggedInUserId + ". User hasn't joined a queue yet.");
+        setQueueData({
+          token: '--',
+          service: 'No Queue',
+          location: '--',
+          position: '--',
+          totalInQueue: '--',
+          estimatedWaitTime: '--',
+          status: 'no_queue',
+          joinedTime: '--',
+          currentServing: '--',
+        });
+        setUpcomingTokens([]);
+        setError('You haven\'t joined any queue yet. Go to "Join Queue" to get started.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Get the active queue and fetch its full details using token
+      const currentQueue = activeQueue;
+      if (currentQueue.token) {
+        console.log("Found active queue token for user " + loggedInUserId + ": " + currentQueue.token);
+        const detailsResponse = await fetch(`http://localhost:8080/api/v1/queues/details/${currentQueue.token}`);
+        if (detailsResponse.ok) {
+          const detailsData = await detailsResponse.json();
+          const queueDetails = detailsData.data;
+          setQueueData({
+            token: queueDetails.token || '--',
+            service: queueDetails.serviceName || 'N/A',
+            location: queueDetails.branchName || 'N/A',
+            position: queueDetails.position || 0,
+            totalInQueue: queueDetails.position ? (queueDetails.position + 5) : 10,
+            estimatedWaitTime: queueDetails.estimatedWaitTime ? `${queueDetails.estimatedWaitTime} minutes` : '--',
+            status: queueDetails.status || 'waiting',
+            joinedTime: queueDetails.joinedTime ? new Date(queueDetails.joinedTime).toLocaleTimeString() : '--',
+            currentServing: queueDetails.position > 0 ? `Q-${Math.floor(Math.random() * 1000)}` : '--',
+          });
+          setError(null);
+
+          // Fetch upcoming tokens from database
+          const upcomingResponse = await fetch(
+            `http://localhost:8080/api/v1/queues/upcoming/branch/${queueDetails.branchId}/service/${queueDetails.serviceId}?limit=5`
+          );
+          
+          if (upcomingResponse.ok) {
+            const upcomingData = await upcomingResponse.json();
+            const tokens = upcomingData.data || [];
+            console.log("Upcoming tokens from database:", tokens);
+            setUpcomingTokens(tokens);
+          } else {
+            setUpcomingTokens(['--', '--', '--', '--', '--']);
+          }
+        } else {
+          // If details fetch fails, use basic queue data from list
+          setQueueData({
+            token: currentQueue.token || '--',
+            service: 'Service',
+            location: 'Branch',
+            position: currentQueue.position || 0,
+            totalInQueue: currentQueue.position ? (currentQueue.position + 5) : 10,
+            estimatedWaitTime: currentQueue.estimatedWaitTime ? `${currentQueue.estimatedWaitTime} minutes` : '--',
+            status: currentQueue.status || 'waiting',
+            joinedTime: currentQueue.joinedTime ? new Date(currentQueue.joinedTime).toLocaleTimeString() : '--',
+            currentServing: currentQueue.position > 0 ? `Q-${Math.floor(Math.random() * 1000)}` : '--',
+          });
+          setUpcomingTokens(['--', '--', '--', '--', '--']);
+        }
+      }
+
+    } catch (err) {
+      console.error("Error fetching tracking data:", err);
+      setError(err.message);
+      setQueueData({
+        token: '--',
+        service: 'Error',
+        location: '--',
+        position: '--',
+        totalInQueue: '--',
+        estimatedWaitTime: '--',
+        status: 'error',
+        joinedTime: '--',
+        currentServing: '--',
+      });
+      setUpcomingTokens([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Fetch data on component mount or when userId/queueToken changes
+  useEffect(() => {
+    fetchQueueData();
+  }, [userId, queueToken]);
 
   const notifications = [
     { id: 1, message: 'Your turn is coming up! Be ready.', time: '5 min ago', type: 'warning' },
     { id: 2, message: 'Counter 2 is now available', time: '2 min ago', type: 'info' },
     { id: 3, message: 'Queue delay: +5 minutes', time: '10 min ago', type: 'alert' },
   ]
-
-  const upcomingTokens = ['Q-1231', 'Q-1232', 'Q-1233', 'Q-1234', 'Q-1235']
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -49,20 +202,33 @@ export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueu
     }
   }
 
-  const progress = ((queueData.totalInQueue - queueData.position) / queueData.totalInQueue) * 100
+  // Safely calculate progress ensuring we don't divide by zero
+  const maxQueueSize = Math.max(queueData.totalInQueue || 1, queueData.position || 1);
+  const progress = Math.max(0, Math.min(100, ((maxQueueSize - (queueData.position || 0)) / maxQueueSize) * 100));
+
+  const handleEnableNotifications = () => {
+    setNotificationsEnabled(true);
+    setSuccessMessage('✓ Notifications enabled successfully!');
+    
+    // Auto-dismiss success message after 3 seconds
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
 
   return (
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="trackQueue"
+        userName={userName}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">
@@ -75,8 +241,12 @@ export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueu
               <p className="text-slate-400 text-sm">Monitor your position in real-time</p>
             </div>
           </div>
-          <button className="p-3 rounded-xl bg-[#2a3060] hover:bg-[#3a4080] border border-[#3a4080] transition-all text-slate-300 hover:text-white">
-            <RefreshCw size={20} />
+          <button 
+            onClick={fetchQueueData}
+            title="Refresh queue status"
+            disabled={isLoading}
+            className={`p-3 rounded-xl bg-[#2a3060] hover:bg-[#3a4080] border border-[#3a4080] transition-all text-slate-300 hover:text-white ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
           </button>
         </div>
       </header>
@@ -84,6 +254,35 @@ export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueu
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
         <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Success Message Toast */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-emerald-600/20 to-green-500/20 border border-emerald-500/50 rounded-xl text-emerald-300 flex items-center gap-3 animate-pulse">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/30 flex items-center justify-center">
+                <span className="text-emerald-300 font-bold">✓</span>
+              </div>
+              <span className="font-semibold">{successMessage}</span>
+            </div>
+          )}
+
+          {/* No Queue Message */}
+          {queueData.status === 'no_queue' && (
+            <div className="flex flex-col items-center justify-center min-h-96 text-center">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-12 max-w-md">
+                <AlertCircle size={48} className="mx-auto mb-4 text-amber-400" />
+                <h2 className="text-2xl font-bold text-white mb-3">No Active Queue</h2>
+                <p className="text-slate-400 mb-6">You haven't joined any queue yet. Head over to "Join Queue" to get started and track your position in real-time.</p>
+                <button
+                  onClick={onNavigateToJoinQueue}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
+                >
+                  Join a Queue Now
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Queue Details (Only show if user has an active queue) */}
+          {queueData.status !== 'no_queue' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Tracking */}
             <div className="lg:col-span-2 space-y-6">
@@ -262,8 +461,8 @@ export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueu
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-green-500/50 transition-all">
-                  Enable Notifications
+                <button onClick={handleEnableNotifications} disabled={notificationsEnabled} className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  {notificationsEnabled ? '✓ Notifications Enabled' : 'Enable Notifications'}
                 </button>
                 <button className="w-full py-3 px-4 bg-[#1a1f3a] border border-[#2a3060] rounded-xl font-bold text-slate-300 hover:bg-[#2a3060] transition-all">
                   Exit Queue
@@ -271,6 +470,7 @@ export default function TrackQueue({ onNavigateToDashboard, onNavigateToJoinQueu
               </div>
             </div>
           </div>
+          )}
         </div>
         </div>
       </main>

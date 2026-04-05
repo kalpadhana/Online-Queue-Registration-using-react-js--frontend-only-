@@ -1,15 +1,45 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Settings as SettingsIcon, Bell, Lock, Palette, Globe, HelpCircle, LogOut, ToggleRight, Save, Moon, Sun } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function Settings({ onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
+export default function Settings({ userName, ...otherProps }) {
+  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings } = otherProps;
   const [accountSettings, setAccountSettings] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+91 98765 43210',
-    branch: 'Downtown Branch',
-    memberSince: 'January 2024',
+    name: userName || '',
+    email: '',
+    phone: '',
+    branch: '',
+    memberSince: '',
   })
+
+  // Fetch account data from Backend when Settings loads
+  useEffect(() => {
+    const fetchAccountData = async () => {
+      try {
+        // You can pass the userName or a User ID if you have one.
+        // For example, if your backend expects an email or uses a session token:
+        // We will send 'userName' as a query parameter for this example.
+        const response = await fetch(`http://localhost:8080/api/users/profile?name=${encodeURIComponent(userName)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setAccountSettings(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            email: data.email || '',
+            phone: data.phone || '',
+            branch: data.branch || '',
+            memberSince: data.memberSince || ''
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch account settings", error);
+      }
+    };
+    
+    if (userName) {
+      fetchAccountData();
+    }
+  }, [userName]);
 
   const [notifications, setNotifications] = useState({
     queueUpdates: true,
@@ -49,24 +79,41 @@ export default function Settings({ onNavigateToDashboard, onNavigateToJoinQueue,
     setPrivacy({ ...privacy, [field]: !privacy[field] })
   }
 
-  const handleSaveProfile = () => {
-    setSaved(true)
-    setEditingProfile(false)
-    setTimeout(() => setSaved(false), 3000)
+  const handleSaveProfile = async () => {
+    try {
+      // Send the updated account settings to the backend
+      const response = await fetch('http://localhost:8080/api/users/profile/update', {
+        method: 'PUT', // or POST depending on your backend
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(accountSettings)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+      
+      setSaved(true)
+      setEditingProfile(false)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to save changes. Please try again.");
+    }
   }
 
   return (
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="settings"
+        userName={userName}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">

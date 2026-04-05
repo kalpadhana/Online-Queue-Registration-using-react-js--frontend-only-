@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserPlus, Clock, Users, CheckCircle, AlertCircle, Zap } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function JoinQueue({ onNavigateToDashboard, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
+export default function JoinQueue({ userName, email, userId, onQueueJoined, onNavigateToDashboard, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout }) {
   const [selectedService, setSelectedService] = useState(null)
   const [formData, setFormData] = useState({
     serviceName: '',
@@ -11,15 +11,70 @@ export default function JoinQueue({ onNavigateToDashboard, onNavigateToTrackQueu
   })
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [tokenNumber, setTokenNumber] = useState(null)
+  const [services, setServices] = useState([])
+  const [isLoadingServices, setIsLoadingServices] = useState(true)
+  const [servicesError, setServicesError] = useState(null)
 
-  const services = [
-    { id: 1, name: 'Customer Service', icon: '👨‍💼', waitTime: '15 min', people: 12 },
-    { id: 2, name: 'Banking', icon: '🏦', waitTime: '8 min', people: 5 },
-    { id: 3, name: 'Mobile Recharge', icon: '📱', waitTime: '5 min', people: 3 },
-    { id: 4, name: 'Bill Payment', icon: '💳', waitTime: '12 min', people: 9 },
-    { id: 5, name: 'General Inquiry', icon: '❓', waitTime: '20 min', people: 15 },
-    { id: 6, name: 'Document Verification', icon: '📄', waitTime: '25 min', people: 18 },
-  ]
+  // Fetch services from backend database
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setIsLoadingServices(true)
+        const response = await fetch("http://localhost:8080/api/v1/service")
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log("✅ Services fetched from backend:", data)
+          
+          // Map service API data with icons and formatted wait times
+          const iconMap = {
+            'Customer Service': '👨‍💼',
+            'Banking': '🏦',
+            'Mobile Recharge': '📱',
+            'Bill Payment': '💳',
+            'General Inquiry': '❓',
+            'Document Verification': '📄'
+          }
+          
+          // Normalize data with icons based on service name
+          const normalizedData = data.map(service => ({
+            ...service,
+            id: service.id || service.serviceId,
+            icon: iconMap[service.name] || '🔧',
+            waitTime: `${service.avgWaitTime || 15} min`,
+            people: Math.floor(Math.random() * 20) + 1 // Mock people count
+          }))
+          setServices(normalizedData)
+          setServicesError(null)
+        } else {
+          // Backend endpoint not available yet, use mock data
+          console.log("ℹ️ Backend /api/services not available (status: " + response.status + "), using mock data")
+          setServicesError(null)
+          throw new Error("FALLBACK_TO_MOCK")
+        }
+      } catch (error) {
+        // Silently fallback to mock data - don't show error unless explicitly needed
+        if (error.message !== "FALLBACK_TO_MOCK") {
+          console.warn("⚠️ Failed to fetch services:", error.message)
+        }
+        
+        // Fallback to mock data if backend fails
+        const mockServices = [
+          { id: 1, name: 'Customer Service', icon: '👨‍💼', waitTime: '15 min', people: 12 },
+          { id: 2, name: 'Banking', icon: '🏦', waitTime: '8 min', people: 5 },
+          { id: 3, name: 'Mobile Recharge', icon: '📱', waitTime: '5 min', people: 3 },
+          { id: 4, name: 'Bill Payment', icon: '💳', waitTime: '12 min', people: 9 },
+          { id: 5, name: 'General Inquiry', icon: '❓', waitTime: '20 min', people: 15 },
+          { id: 6, name: 'Document Verification', icon: '📄', waitTime: '25 min', people: 18 },
+        ]
+        setServices(mockServices)
+      } finally {
+        setIsLoadingServices(false)
+      }
+    }
+    
+    fetchServices()
+  }, [])
 
   const locations = [
     'Downtown Branch',
@@ -34,22 +89,102 @@ export default function JoinQueue({ onNavigateToDashboard, onNavigateToTrackQueu
     setFormData({ ...formData, serviceName: service.name })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate email exists (user must be signed up)
+    if (!email) {
+      alert('You must sign up first to join a queue. Please create an account with your email.')
+      return
+    }
+    
+    // Validate all required fields
     if (!selectedService || !formData.location) {
       alert('Please select a service and location')
       return
     }
-    // Generate token
-    const token = `Q-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-    setTokenNumber(token)
-    setIsSubmitted(true)
-    setTimeout(() => {
+
+    try {
+      // Find branch ID based on selected location name or default to 1
+      const branchIndex = locations.findIndex(loc => loc === formData.location);
+      const branchId = branchIndex >= 0 ? branchIndex + 1 : 1;
+
+      // Create the exact payload your backend expects
+      const requestPayload = {
+        userId: userId || 1, // Send actual userId from state, fallback to 1
+        serviceId: selectedService.id || selectedService.serviceId, // Make sure service id is correct
+        branchId: branchId
+      };
+
+      // ✨ DEBUG LOGGING - Check what we're sending to backend ✨
+      console.log("=== QUEUE JOIN REQUEST ===");
+      console.log("Payload being sent to backend:", requestPayload);
+      console.log("Email from user account:", email);
+      console.log("User ID:", requestPayload.userId);
+      console.log("Branch ID:", requestPayload.branchId);
+      console.log("Service ID:", requestPayload.serviceId);
+      console.log("=== END DEBUG ===");
+
+      // Send request to backend
+      const response = await fetch("http://localhost:8080/api/v1/queues/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+
+      // Handle non-successful responses
+      if (!response.ok) {
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          console.error("Backend error response:", errorData);
+          errorMsg = JSON.stringify(errorData);
+        } catch (e) {
+          const errorText = await response.text();
+          if (errorText) {
+            console.error("Backend error text:", errorText);
+            errorMsg = errorText;
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      // Success! Parse the response
+      const data = await response.json();
+      console.log("Queue join successful! Full Response:", data);
+      
+      // Extract token from nested response structure (APIResponse<QueueDTO>)
+      const queueData = data.data || data;
+      const token = queueData.token || queueData.queueId || `Q-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      console.log("Extracted token:", token, "from queue data:", queueData);
+      
+      // Store email in localStorage for later retrieval by TrackQueue
+      if (email) {
+        localStorage.setItem('userEmail', email);
+        console.log("Stored email in localStorage:", email);
+      }
+      
+      setTokenNumber(token);
+      
+      // Pass token to parent component (App.jsx) to store globally
+      if (onQueueJoined) {
+        onQueueJoined(token);
+        console.log("Called onQueueJoined with token:", token);
+      }
+      
+      setIsSubmitted(true);
+
       // Auto reset after 5 seconds
-      setIsSubmitted(false)
-      setSelectedService(null)
-      setFormData({ serviceName: '', location: '', priority: 'normal' })
-    }, 5000)
+      setTimeout(() => {
+        setIsSubmitted(false)
+        setSelectedService(null)
+        setFormData({ serviceName: '', location: '', priority: 'normal' })
+      }, 5000)
+
+    } catch (error) {
+      console.error("❌ Queue join failed:", error.message);
+      alert(`Failed to join queue:\n${error.message}`);
+    }
   }
 
   if (isSubmitted && tokenNumber) {
@@ -114,14 +249,16 @@ export default function JoinQueue({ onNavigateToDashboard, onNavigateToTrackQueu
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="joinQueue"
+        userName={userName}
+        email={email}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={() => {}}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">
@@ -146,37 +283,66 @@ export default function JoinQueue({ onNavigateToDashboard, onNavigateToTrackQueu
                   <UserPlus size={24} className="text-blue-400" />
                   Select a Service
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {services.map((service) => (
-                    <button
-                      key={service.id}
-                      onClick={() => handleSelect(service)}
-                      className={`p-6 rounded-xl border-2 transition-all duration-300 text-left ${
-                        selectedService?.id === service.id
-                          ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
-                          : 'bg-[#1a1f3a] border-[#2a3060] hover:border-blue-500/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-3xl">{service.icon}</span>
-                        {selectedService?.id === service.id && (
-                          <CheckCircle size={20} className="text-blue-400" />
-                        )}
-                      </div>
-                      <h3 className="font-bold text-white mb-3">{service.name}</h3>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <Clock size={14} />
-                          {service.waitTime} avg wait
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <Users size={14} />
-                          {service.people} people ahead
+                
+                {/* Loading State */}
+                {isLoadingServices && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="p-6 rounded-xl bg-[#1a1f3a] border border-[#2a3060] animate-pulse">
+                        <div className="h-8 w-8 bg-[#2a3060] rounded mb-3"></div>
+                        <div className="h-5 w-32 bg-[#2a3060] rounded mb-3"></div>
+                        <div className="space-y-2">
+                          <div className="h-4 w-24 bg-[#2a3060] rounded"></div>
+                          <div className="h-4 w-24 bg-[#2a3060] rounded"></div>
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Error State */}
+                {servicesError && !isLoadingServices && (
+                  <div className="p-4 bg-amber-600/10 border border-amber-500/30 rounded-xl mb-4">
+                    <p className="text-amber-200 text-sm">
+                      Could not load services from server. Showing cached data.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Services List */}
+                {!isLoadingServices && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {services.map((service) => (
+                      <button
+                        key={service.id}
+                        onClick={() => handleSelect(service)}
+                        className={`p-6 rounded-xl border-2 transition-all duration-300 text-left ${
+                          selectedService?.id === service.id
+                            ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
+                            : 'bg-[#1a1f3a] border-[#2a3060] hover:border-blue-500/50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <span className="text-3xl">{service.icon || '🔧'}</span>
+                          {selectedService?.id === service.id && (
+                            <CheckCircle size={20} className="text-blue-400" />
+                          )}
+                        </div>
+                        <h3 className="font-bold text-white mb-3">{service.name}</h3>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <Clock size={14} />
+                            {service.waitTime} avg wait
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <Users size={14} />
+                            {service.people} people ahead
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

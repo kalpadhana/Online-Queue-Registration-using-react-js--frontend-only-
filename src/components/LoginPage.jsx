@@ -8,13 +8,43 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
   const [isLoading, setIsLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch("http://localhost:8080/api/v1/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!response.ok) {
+        let errorMsg = `Invalid email or password`;
+        try {
+          const errorData = await response.json();
+          errorMsg = (typeof errorData.data === 'string' ? errorData.data : undefined) || errorData.message || errorMsg;
+        } catch (e) {
+          // ignore
+        }
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json()
       setIsLoading(false)
-      onLoginSuccess({ email, name: 'John Doe' })
-    }, 1000)
+      
+      const userData = result.data || result;
+      // Store email in localStorage for persistent access
+      localStorage.setItem('userEmail', email);
+      console.log("Stored email in localStorage:", email);
+      
+      // Pass the fully authenticated user data with email to App.jsx
+      onLoginSuccess({ ...userData, email: email })
+    } catch (error) {
+      console.error("Login failed:", error)
+      alert("Failed to log in: " + error.message)
+      setIsLoading(false)
+    }
   }
 
   return (

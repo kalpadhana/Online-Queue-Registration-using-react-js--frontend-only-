@@ -16,15 +16,17 @@ import {
 } from 'lucide-react'
 
 export default function Sidebar({ 
+  userName,
   activePage, 
   onNavigateToDashboard, 
   onNavigateToJoinQueue, 
   onNavigateToTrackQueue,
-  onNavigateToCrowdLevel,
+
   onNavigateToNotifications,
   onNavigateToAdminDashboard,
   onNavigateToPriorityQueue,
-  onNavigateToSettings
+  onNavigateToSettings,
+  onLogout
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -33,7 +35,7 @@ export default function Sidebar({
     { name: 'Join Queue', icon: UserPlus, page: 'joinQueue' },
     { name: 'Track Queue', icon: MapPin, page: 'trackQueue' },
     { name: 'Notifications', icon: Bell, page: 'notifications' },
-    { name: 'Crowd Level', icon: Users, page: 'crowdLevel' },
+
     { name: 'Admin Dashboard', icon: Shield, page: 'admin' },
     { name: 'Priority Queue', icon: Zap, page: 'priorityQueue' },
     { name: 'Settings', icon: Settings, page: 'settings' },
@@ -46,8 +48,7 @@ export default function Sidebar({
       onNavigateToJoinQueue()
     } else if (page === 'trackQueue') {
       onNavigateToTrackQueue()
-    } else if (page === 'crowdLevel') {
-      onNavigateToCrowdLevel()
+
     } else if (page === 'notifications') {
       onNavigateToNotifications()
     } else if (page === 'admin') {
@@ -120,14 +121,14 @@ export default function Sidebar({
         <div className="p-4 border-t border-[#2a3060] bg-[#0a0e27]/50">
           <div className="flex items-center gap-3 p-3 bg-[#1a1f3a] rounded-lg border border-[#2a3060]">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              JD
+              {userName ? userName.substring(0, 2).toUpperCase() : 'GU'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">John Doe</p>
-              <p className="text-xs text-slate-500">Administrator</p>
+              <p className="text-sm font-semibold truncate">{userName || 'Guest'}</p>
+              <p className="text-xs text-slate-500">User</p>
             </div>
           </div>
-          <button className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-all border border-red-500/20 hover:border-red-500/40 font-medium text-sm">
+          <button onClick={onLogout} className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-all border border-red-500/20 hover:border-red-500/40 font-medium text-sm">
             <LogOut size={16} />
             Logout
           </button>

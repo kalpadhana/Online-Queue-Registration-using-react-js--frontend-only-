@@ -5,7 +5,7 @@ import SignupPage from './components/SignupPage'
 import Dashboard from './components/Dashboard'
 import JoinQueue from './components/JoinQueue'
 import TrackQueue from './components/TrackQueue'
-import CrowdLevel from './components/CrowdLevel'
+
 import NotificationsPage from './components/NotificationsPage'
 import AdminDashboard from './components/AdminDashboard'
 import PriorityQueue from './components/PriorityQueue'
@@ -14,10 +14,34 @@ import Settings from './components/Settings'
 export default function App() {
   const [page, setPage] = useState('splash')
   const [message, setMessage] = useState("")
+  const [userName, setUserName] = useState("")
+  const [userId, setUserId] = useState(null)
+  const [queueToken, setQueueToken] = useState(null)
   
   // New Customer Form State
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+
+  // Load persisted data on app mount
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('userId')
+    const storedEmail = localStorage.getItem('email')
+    const storedUserName = localStorage.getItem('userName')
+    const storedQueueToken = localStorage.getItem('queueToken')
+    
+    if (storedUserId) {
+      setUserId(parseInt(storedUserId))
+    }
+    if (storedEmail) {
+      setEmail(storedEmail)
+    }
+    if (storedUserName) {
+      setUserName(storedUserName)
+    }
+    if (storedQueueToken) {
+      setQueueToken(storedQueueToken)
+    }
+  }, [])
 
   const handleAddCustomerSubmit = async () => {
     console.log("Sending data:", { name, email });
@@ -42,13 +66,19 @@ export default function App() {
 
   useEffect(() => {
     fetch("http://localhost:8080/api/test")
-      .then((res) => res.text())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.text();
+      })
       .then((data) => {
         console.log("Backend Response:", data); // 🔥 check console
         setMessage(data);
       })
       .catch((err) => {
-        console.error("Error:", err);
+        console.error("Backend connection failed:", err.message);
+        setMessage("Could not connect to backend");
       });
   }, []);
 
@@ -64,11 +94,48 @@ export default function App() {
     setPage('signup')
   }
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (userData) => {
+    console.log("User logged in successfully:", userData);
+    
+    // Clear previous user's data
+    setQueueToken(null)
+    localStorage.removeItem('queueToken')
+    
+    if (userData && (userData.name || userData.fullName)) {
+      const name = userData.name || userData.fullName
+      setUserName(name)
+      localStorage.setItem('userName', name)
+    }
+    if (userData && userData.userId) {
+      setUserId(userData.userId)
+      localStorage.setItem('userId', userData.userId.toString())
+    }
+    if (userData && userData.email) {
+      setEmail(userData.email)
+      localStorage.setItem('email', userData.email)
+    }
     setPage('dashboard')
   }
 
-  const handleSignupSuccess = () => {
+  const handleSignupSuccess = (userData) => {
+    console.log("User signed up successfully:", userData);
+    
+    // Clear previous user's data
+    setQueueToken(null)
+    localStorage.removeItem('queueToken')
+    
+    if (userData && userData.name) {
+      setUserName(userData.name)
+      localStorage.setItem('userName', userData.name)
+    }
+    if (userData && userData.userId) {
+      setUserId(userData.userId)
+      localStorage.setItem('userId', userData.userId.toString())
+    }
+    if (userData && userData.email) {
+      setEmail(userData.email)
+      localStorage.setItem('email', userData.email)
+    }
     setPage('dashboard')
   }
 
@@ -84,9 +151,7 @@ export default function App() {
     setPage('trackQueue')
   }
 
-  const handleNavigateToCrowdLevel = () => {
-    setPage('crowdLevel')
-  }
+
 
   const handleNavigateToNotifications = () => {
     setPage('notifications')
@@ -102,6 +167,29 @@ export default function App() {
 
   const handleNavigateToSettings = () => {
     setPage('settings')
+  }
+
+  const handleLogout = () => {
+    // Clear all user data from state and localStorage
+    setUserId(null)
+    setUserName('')
+    setEmail('')
+    setQueueToken(null)
+    
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userName')
+    localStorage.removeItem('email')
+    localStorage.removeItem('queueToken')
+    
+    setPage('login')
+  }
+
+  const handleQueueJoined = (token) => {
+    console.log("Queue joined with token:", token)
+    setQueueToken(token)
+    localStorage.setItem('queueToken', token)
+    // Optionally navigate to track queue automatically
+    // setPage('trackQueue')
   }
 
   if (page === 'splash') {
@@ -127,35 +215,45 @@ export default function App() {
   }
 
   if (page === 'dashboard') {
-    return <Dashboard onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <Dashboard 
+      userId={userId}
+      email={email}
+      userName={userName} 
+      onNavigateToJoinQueue={handleNavigateToJoinQueue} 
+      onNavigateToTrackQueue={handleNavigateToTrackQueue} 
+      onNavigateToDashboard={handleNavigateToDashboard} 
+      onNavigateToNotifications={handleNavigateToNotifications} 
+      onNavigateToAdminDashboard={handleNavigateToAdminDashboard} 
+      onNavigateToPriorityQueue={handleNavigateToPriorityQueue} 
+      onNavigateToSettings={handleNavigateToSettings}
+      onLogout={handleLogout}
+    />
   }
 
   if (page === 'joinQueue') {
-    return <JoinQueue onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <JoinQueue userName={userName} email={email} userId={userId} onQueueJoined={handleQueueJoined} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
   if (page === 'trackQueue') {
-    return <TrackQueue onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <TrackQueue userName={userName} email={email} userId={userId} queueToken={queueToken} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
-  if (page === 'crowdLevel') {
-    return <CrowdLevel onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
-  }
+
 
   if (page === 'notifications') {
-    return <NotificationsPage onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <NotificationsPage userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
   if (page === 'admin') {
-    return <AdminDashboard onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <AdminDashboard userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
   if (page === 'priorityQueue') {
-    return <PriorityQueue onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <PriorityQueue userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
   if (page === 'settings') {
-    return <Settings onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToCrowdLevel={handleNavigateToCrowdLevel} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} />
+    return <Settings userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
   }
 
   if (page === 'addCustomer') {

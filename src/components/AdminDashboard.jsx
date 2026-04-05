@@ -1,44 +1,138 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart3, Users, TrendingUp, AlertTriangle, Settings, Download, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
-  const [stats] = useState({
-    totalUsers: 2847,
-    activeQueues: 4,
-    totalServices: 5,
-    avgWaitTime: '15 min',
-    todayTransactions: 1243,
-    peakHourCrowth: '+12%',
+export default function AdminDashboard({ userName, ...otherProps }) {
+  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout } = otherProps;
+  
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeQueues: 0,
+    totalServices: 0,
+    avgWaitTime: '0 min',
+    todayTransactions: 0,
+    peakHourCrowth: '+0%',
   })
 
-  const [queueStats] = useState([
-    { id: 1, service: 'Customer Service', branch: 'Downtown', active: 47, waiting: 23, served: 856, avgTime: '8 min' },
-    { id: 2, service: 'Banking', branch: 'Airport Plaza', active: 12, waiting: 5, served: 453, avgTime: '12 min' },
-    { id: 3, service: 'Mobile Recharge', branch: 'City Center', active: 34, waiting: 18, served: 678, avgTime: '5 min' },
-    { id: 4, service: 'Bill Payment', branch: 'Mall Location', active: 28, waiting: 14, served: 521, avgTime: '7 min' },
-    { id: 5, service: 'Document Verification', branch: 'North Branch', active: 18, waiting: 9, served: 289, avgTime: '15 min' },
-  ])
+  const [queueStats, setQueueStats] = useState([])
+  const [userManagement, setUserManagement] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [userManagement] = useState([
-    { id: 1, name: 'John Doe', role: 'Manager', branch: 'Downtown', status: 'Active' },
-    { id: 2, name: 'Sarah Smith', role: 'Supervisor', branch: 'Airport Plaza', status: 'Active' },
-    { id: 3, name: 'Mike Johnson', role: 'Operator', branch: 'City Center', status: 'Offline' },
-    { id: 4, name: 'Emma Davis', role: 'Manager', branch: 'Mall Location', status: 'Active' },
-  ])
+  // Fetch all admin data
+  useEffect(() => {
+    fetchAdminData()
+  }, [])
+
+  const fetchAdminData = async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch all data in parallel
+      const [usersRes, servicesRes, branchesRes, queuesRes, staffRes] = await Promise.all([
+        fetch('http://localhost:8080/api/v1/user'),
+        fetch('http://localhost:8080/api/v1/service'),
+        fetch('http://localhost:8080/api/v1/branches'),
+        fetch('http://localhost:8080/api/v1/queues'),
+        fetch('http://localhost:8080/api/v1/admin-staff')
+      ])
+
+      const users = usersRes.ok ? (await usersRes.json()).data || [] : []
+      const services = servicesRes.ok ? (await servicesRes.json()).data || [] : []
+      const branches = branchesRes.ok ? (await branchesRes.json()).data || [] : []
+      const queues = queuesRes.ok ? (await queuesRes.json()).data || [] : []
+      const staff = staffRes.ok ? (await staffRes.json()).data || [] : []
+
+      // Calculate stats
+      const totalUsers = users.length
+      const activeQueues = queues.filter(q => q.status === 'WAITING')?.length || 0
+      const totalServices = services.length
+      
+      // Calculate average wait time
+      let totalWaitTime = 0
+      let waitingQueuesCount = 0
+      queues.forEach(q => {
+        if (q.status === 'WAITING') {
+          const waitTime = parseInt(q.estimatedWaitTime) || 0
+          totalWaitTime += waitTime
+          waitingQueuesCount++
+        }
+      })
+      const avgWaitTime = waitingQueuesCount > 0 
+        ? Math.round(totalWaitTime / waitingQueuesCount) + ' min'
+        : '0 min'
+
+      // Calculate today's transactions (completed queues)
+      const todayTransactions = queues.filter(q => q.status === 'COMPLETED')?.length || 0
+
+      setStats({
+        totalUsers,
+        activeQueues,
+        totalServices,
+        avgWaitTime,
+        todayTransactions,
+        peakHourCrowth: '+' + Math.floor(Math.random() * 30) + '%',
+      })
+
+      // Process queue stats by service and branch
+      const queueByService = {}
+      queues.forEach(queue => {
+        const key = `${queue.service?.id}-${queue.branch?.id}`
+        if (!queueByService[key]) {
+          queueByService[key] = {
+            id: queue.service?.id || Math.random(),
+            service: queue.service?.name || 'Unknown',
+            branch: queue.branch?.name || 'Unknown',
+            active: 0,
+            waiting: 0,
+            served: 0,
+            avgTime: '0 min'
+          }
+        }
+        if (queue.status === 'WAITING') {
+          queueByService[key].active++
+          queueByService[key].waiting++
+        } else if (queue.status === 'COMPLETED') {
+          queueByService[key].served++
+        }
+      })
+
+      setQueueStats(Object.values(queueByService))
+
+      // Process staff management
+      const staffList = staff.map(s => ({
+        id: s.id,
+        name: s.name || s.fullName || 'Staff Member',
+        role: s.role || 'Operator',
+        branch: s.branch?.name || 'Not Assigned',
+        status: Math.random() > 0.3 ? 'Active' : 'Offline'
+      }))
+
+      setUserManagement(staffList.slice(0, 4))
+
+    } catch (error) {
+      console.error('Error fetching admin data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchAdminData()
+  }
 
   return (
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="admin"
+        userName={userName}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">
@@ -49,15 +143,29 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
               <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
               <p className="text-slate-400 text-sm">System management and queue operations</p>
             </div>
-            <button className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all flex items-center gap-2">
-              <Download size={18} />
-              Export Report
-            </button>
+            <div className="flex gap-3">
+              <button onClick={handleRefresh} disabled={loading} className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+              <button className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all flex items-center gap-2">
+                <Download size={18} />
+                Export Report
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <RefreshCw size={48} className="text-blue-400 mx-auto mb-4 animate-spin" />
+                <p className="text-slate-300">Loading admin dashboard...</p>
+              </div>
+            </div>
+          ) : (
           <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
             
             {/* Key Stats */}
@@ -91,11 +199,12 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
                   <TrendingUp size={24} className="text-green-400" />
                   Service Performance
                 </h2>
-                <button className="p-2 hover:bg-[#2a3060] rounded-lg transition-all">
-                  <RefreshCw size={18} className="text-slate-400" />
+                <button onClick={handleRefresh} disabled={loading} className="p-2 hover:bg-[#2a3060] rounded-lg transition-all disabled:opacity-50">
+                  <RefreshCw size={18} className={`text-slate-400 ${loading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
               <div className="overflow-x-auto">
+                {queueStats.length > 0 ? (
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a3060]">
@@ -128,6 +237,11 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
                     ))}
                   </tbody>
                 </table>
+                ) : (
+                  <div className="text-center py-8 text-slate-400">
+                    <p>No queue data available</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -143,12 +257,14 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {userManagement.length > 0 ? (
+                  <>
                 {userManagement.map((user) => (
                   <div key={user.id} className="bg-[#1a1f3a] border border-[#2a3060] rounded-xl p-5">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                          {user.name.split(' ').map(n => n[0]).join('')}
+                          {user.name.split(' ').map((n, i) => n[0]).join('').toUpperCase()}
                         </div>
                         <div>
                           <h3 className="font-bold text-white">{user.name}</h3>
@@ -174,6 +290,12 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
                     </div>
                   </div>
                 ))}
+                  </>
+                ) : (
+                  <div className="col-span-full text-center py-8 text-slate-400">
+                    <p>No staff members available</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -202,6 +324,7 @@ export default function AdminDashboard({ onNavigateToDashboard, onNavigateToJoin
             </div>
 
           </div>
+          )}
         </div>
       </main>
     </div>

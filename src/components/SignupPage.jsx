@@ -19,7 +19,7 @@ export default function SignupPage({ onNavigateLogin, onSignupSuccess }) {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match!')
@@ -31,10 +31,47 @@ export default function SignupPage({ onNavigateLogin, onSignupSuccess }) {
     }
 
     setIsLoading(true)
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:8080/api/v1/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: "USER"
+        }),
+      })
+
+      if (!response.ok) {
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          // Extract 'data' if it exists (for APIResponse payload) or fallback to 'message'
+          errorMsg = (typeof errorData.data === 'string' ? errorData.data : undefined) || errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+          const errorText = await response.text();
+          if (errorText) errorMsg = errorText;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json()
       setIsLoading(false)
-      onSignupSuccess({ email: formData.email, name: formData.fullName })
-    }, 1000)
+      
+      const userData = result.data || result;
+      // Store email in localStorage for persistent access
+      localStorage.setItem('userEmail', formData.email);
+      console.log("Stored email in localStorage:", formData.email);
+      
+      // Pass user data with email to App.jsx
+      onSignupSuccess({ ...userData, name: formData.fullName, email: formData.email })
+    } catch (error) {
+      console.error("Signup failed:", error)
+      alert(`Failed to sign up: ${error.message}`)
+      setIsLoading(false)
+    }
   }
 
   return (

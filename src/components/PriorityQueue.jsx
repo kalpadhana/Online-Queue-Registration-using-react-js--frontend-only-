@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Zap, Star, Clock, Users, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function PriorityQueue({ onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
+export default function PriorityQueue({ userName, ...otherProps }) {
+  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings } = otherProps;
   const [priorityUsers] = useState([
     { id: 1, token: 'VIP-001', name: 'Rajesh Kumar', service: 'Banking', branch: 'Downtown', priority: 'Gold', position: 1, status: 'Being Served', waitTime: '2 min' },
     { id: 2, token: 'VIP-002', name: 'Priya Sharma', service: 'Customer Service', branch: 'Downtown', priority: 'Platinum', position: 2, status: 'Waiting', waitTime: '8 min' },
@@ -52,14 +53,15 @@ export default function PriorityQueue({ onNavigateToDashboard, onNavigateToJoinQ
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="priorityQueue"
+        userName={userName}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">

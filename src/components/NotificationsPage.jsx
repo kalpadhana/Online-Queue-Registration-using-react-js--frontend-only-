@@ -1,20 +1,114 @@
-import { useState } from 'react'
-import { Bell, Trash2, Filter, CheckCircle, AlertCircle, Info, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Bell, Trash2, Filter, CheckCircle, AlertCircle, Info, Clock, RefreshCw } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function NotificationsPage({ onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToCrowdLevel, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings }) {
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'success', title: 'Your Turn Coming Soon', message: 'You are next in queue at Downtown Branch. Be ready!', time: '5 minutes ago', read: false },
-    { id: 2, type: 'warning', title: 'Queue Delay Updated', message: 'Expected 5-minute delay at City Center due to high traffic.', time: '15 minutes ago', read: false },
-    { id: 3, type: 'info', title: 'Counter 2 Available', message: 'A new service counter is now open at Airport Plaza.', time: '25 minutes ago', read: true },
-    { id: 4, type: 'info', title: 'Service Status Update', message: 'Mobile Recharge service is now available with 3-minute average wait.', time: '1 hour ago', read: true },
-    { id: 5, type: 'warning', title: 'High Crowd Level', message: 'City Center branch is experiencing high crowd. Consider visiting Downtown Branch.', time: '2 hours ago', read: true },
-    { id: 6, type: 'success', title: 'Token Processed', message: 'Your token Q-1234 has been successfully processed.', time: '3 hours ago', read: true },
-    { id: 7, type: 'info', title: 'Maintenance Alert', message: 'Scheduled maintenance at North Branch from 10 PM - 6 AM tonight.', time: '5 hours ago', read: true },
-    { id: 8, type: 'warning', title: 'Wait Time Increased', message: 'Estimated wait time at Mall Location increased to 30 minutes.', time: '6 hours ago', read: true },
-  ])
-
+export default function NotificationsPage({ userName, userId, email, onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout }) {
+  const [notifications, setNotifications] = useState([])
   const [filter, setFilter] = useState('all')
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch queue data and generate notifications
+  const fetchQueueNotifications = async () => {
+    try {
+      setIsLoading(true)
+      const loggedInUserId = userId || 1
+      
+      // Fetch user's queues
+      const response = await fetch(`http://localhost:8080/api/v1/queues/user/${loggedInUserId}`)
+      
+      if (!response.ok) {
+        console.log("No queues found for user")
+        setIsLoading(false)
+        return
+      }
+
+      const data = await response.json()
+      const userQueues = data.data || []
+      
+      console.log("User queues fetched:", userQueues)
+
+      // Generate notifications from queue data
+      const generatedNotifications = []
+      let notificationId = 1
+
+      userQueues.forEach((queue, index) => {
+        // Notification for waiting position
+        if (queue.status === 'WAITING' || queue.status === 'waiting') {
+          generatedNotifications.push({
+            id: notificationId++,
+            type: queue.position <= 3 ? 'success' : 'info',
+            title: queue.position <= 3 ? 'Your Turn Coming Soon!' : `In Queue - Position #${queue.position}`,
+            message: `At ${queue.branchName} for ${queue.serviceName}. You are position #${queue.position} with ~${queue.estimatedWaitTime} minutes wait.`,
+            time: 'Just now',
+            read: false,
+            service: queue.serviceName,
+            branch: queue.branchName,
+            position: queue.position,
+            token: queue.token
+          })
+        }
+
+        // Notification for completed queue
+        if (queue.status === 'COMPLETED' || queue.status === 'completed') {
+          generatedNotifications.push({
+            id: notificationId++,
+            type: 'success',
+            title: 'Queue Completed',
+            message: `Your token ${queue.token} at ${queue.branchName} has been completed for ${queue.serviceName}.`,
+            time: 'Recently completed',
+            read: false,
+            service: queue.serviceName,
+            branch: queue.branchName,
+            token: queue.token
+          })
+        }
+
+        // Notification for cancelled queue
+        if (queue.status === 'CANCELLED' || queue.status === 'cancelled') {
+          generatedNotifications.push({
+            id: notificationId++,
+            type: 'warning',
+            title: 'Queue Cancelled',
+            message: `Your token ${queue.token} for ${queue.serviceName} at ${queue.branchName} was cancelled.`,
+            time: 'Recently',
+            read: false,
+            service: queue.serviceName,
+            branch: queue.branchName,
+            token: queue.token
+          })
+        }
+      })
+
+      // Add system notifications
+      generatedNotifications.push({
+        id: notificationId++,
+        type: 'info',
+        title: 'Notifications Enabled',
+        message: 'You will receive real-time updates every 5 minutes about your queue status.',
+        time: 'System',
+        read: false
+      })
+
+      setNotifications(generatedNotifications)
+      setIsLoading(false)
+    } catch (err) {
+      console.error("Error fetching queue notifications:", err)
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch notifications on component mount and set up auto-refresh every 5 minutes
+  useEffect(() => {
+    fetchQueueNotifications()
+    
+    // Auto-refresh notifications every 5 minutes (300000 ms)
+    const notificationInterval = setInterval(() => {
+      console.log("Auto-refreshing notifications...")
+      fetchQueueNotifications()
+    }, 300000)
+
+    return () => clearInterval(notificationInterval)
+  }, [userId])
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -70,14 +164,15 @@ export default function NotificationsPage({ onNavigateToDashboard, onNavigateToJ
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
         activePage="notifications"
+        userName={userName}
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
         onNavigateToTrackQueue={onNavigateToTrackQueue}
-        onNavigateToCrowdLevel={onNavigateToCrowdLevel}
         onNavigateToNotifications={onNavigateToNotifications}
         onNavigateToAdminDashboard={onNavigateToAdminDashboard}
         onNavigateToPriorityQueue={onNavigateToPriorityQueue}
         onNavigateToSettings={onNavigateToSettings}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden ml-64">
@@ -96,6 +191,14 @@ export default function NotificationsPage({ onNavigateToDashboard, onNavigateToJ
               <p className="text-slate-400 text-sm">Stay updated with queue and service information</p>
             </div>
             <div className="flex gap-2">
+              <button 
+                onClick={fetchQueueNotifications} 
+                disabled={isLoading}
+                title="Refresh notifications"
+                className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all text-sm font-medium disabled:opacity-50">
+                <RefreshCw size={16} className={`inline mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'Updating...' : 'Refresh'}
+              </button>
               {unreadCount > 0 && (
                 <button onClick={markAllAsRead} className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all text-sm font-medium">
                   Mark all as read
@@ -169,8 +272,18 @@ export default function NotificationsPage({ onNavigateToDashboard, onNavigateToJ
               </button>
             </div>
 
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                  <p className="text-slate-400">Loading your queue notifications...</p>
+                </div>
+              </div>
+            )}
+
             {/* Notifications List */}
-            {filteredNotifications.length > 0 ? (
+            {!isLoading && filteredNotifications.length > 0 ? (
               <div className="space-y-4">
                 {filteredNotifications.map((notif) => (
                   <div
@@ -218,11 +331,19 @@ export default function NotificationsPage({ onNavigateToDashboard, onNavigateToJ
               <div className="text-center py-16">
                 <Bell size={48} className="mx-auto text-slate-600 mb-4" />
                 <h3 className="text-xl font-bold text-slate-400 mb-2">No notifications</h3>
-                <p className="text-slate-500">
+                <p className="text-slate-500 mb-6">
                   {filter === 'all' 
-                    ? 'You\'re all caught up!' 
+                    ? 'You haven\'t joined any queue yet. Join a queue to receive notifications!' 
                     : `No ${filter} notifications to show`}
                 </p>
+                {filter === 'all' && (
+                  <button
+                    onClick={onNavigateToJoinQueue}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition-all"
+                  >
+                    Join a Queue
+                  </button>
+                )}
               </div>
             )}
 
