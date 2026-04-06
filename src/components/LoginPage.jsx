@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Lock, Mail, ArrowRight, Eye, EyeOff, Zap } from 'lucide-react'
 
 export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
@@ -7,6 +7,80 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const googleInitializedRef = useRef(false)
+
+  const handleGoogleSuccess = async (response) => {
+    try {
+      setIsLoading(true)
+      console.log('🔵 Google sign-in successful')
+
+      // Send the token to your backend
+      const res = await fetch('http://localhost:8080/api/v1/auth/google/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: response.credential })
+      })
+
+      const result = await res.json()
+
+      if (res.ok && result.data) {
+        console.log('✅ Backend authentication successful')
+        // Store JWT token and user info
+        localStorage.setItem('jwtToken', result.data.token)
+        localStorage.setItem('userEmail', result.data.email)
+        localStorage.setItem('userId', result.data.userId)
+        localStorage.setItem('fullName', result.data.fullName)
+
+        // Call success callback
+        onLoginSuccess({
+          userId: result.data.userId,
+          email: result.data.email,
+          fullName: result.data.fullName,
+          token: result.data.token
+        })
+      } else {
+        alert('Authentication failed: ' + result.message)
+      }
+    } catch (error) {
+      console.error('❌ Google login error:', error)
+      alert('Failed to authenticate with Google')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Load Google Sign-In script and initialize
+  useEffect(() => {
+    // Only initialize once
+    if (googleInitializedRef.current) return
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    
+    script.onload = () => {
+      if (window.google && !googleInitializedRef.current) {
+        googleInitializedRef.current = true
+        
+        window.google.accounts.id.initialize({
+          client_id: '1030305046580-ltjejnm2f7cfpjung0e8lv7ca31gofrt.apps.googleusercontent.com',
+          callback: handleGoogleSuccess
+        })
+
+        const buttonElement = document.getElementById('google-signin-button')
+        if (buttonElement) {
+          window.google.accounts.id.renderButton(buttonElement, {
+            theme: 'filled_blue',
+            size: 'large',
+            type: 'standard',
+            text: 'signin'
+          })
+        }
+      }
+    }
+    
+    document.head.appendChild(script)
+  }, [handleGoogleSuccess])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -159,18 +233,13 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
               <div className="w-full border-t border-[#2a3060]"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 text-slate-500 bg-[#1a1f3a]">Or continue with</span>
+              <span className="px-2 text-slate-500 bg-[#1a1f3a]">Or continue with Google</span>
             </div>
           </div>
 
-          {/* Social Login */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <button className="p-3 bg-[#0a0e27] border border-[#2a3060] rounded-xl hover:border-blue-500/30 transition text-center">
-              <span className="text-xl">🔵</span>
-            </button>
-            <button className="p-3 bg-[#0a0e27] border border-[#2a3060] rounded-xl hover:border-blue-500/30 transition text-center">
-              <span className="text-xl">🐙</span>
-            </button>
+          {/* Google Sign-In Button */}
+          <div className="flex justify-center">
+            <div id="google-signin-button" className="mb-6"></div>
           </div>
 
           {/* Sign Up Link */}

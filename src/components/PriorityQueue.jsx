@@ -3,7 +3,7 @@ import { Zap, Star, Clock, Users, TrendingUp, CheckCircle, AlertCircle } from 'l
 import Sidebar from './Sidebar'
 
 export default function PriorityQueue({ userName, ...otherProps }) {
-  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings } = otherProps;
+  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout } = otherProps;
   const [priorityUsers] = useState([
     { id: 1, token: 'VIP-001', name: 'Rajesh Kumar', service: 'Banking', branch: 'Downtown', priority: 'Gold', position: 1, status: 'Being Served', waitTime: '2 min' },
     { id: 2, token: 'VIP-002', name: 'Priya Sharma', service: 'Customer Service', branch: 'Downtown', priority: 'Platinum', position: 2, status: 'Waiting', waitTime: '8 min' },

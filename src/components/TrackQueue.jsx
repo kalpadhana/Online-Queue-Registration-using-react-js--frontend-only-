@@ -21,6 +21,8 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
   const [upcomingTokens, setUpcomingTokens] = useState([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [userNotifications, setUserNotifications] = useState([]);
+  const [pollInterval, setPollInterval] = useState(null);
 
   const fetchQueueData = async () => {
     setIsLoading(true);
@@ -165,25 +167,81 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
     }
   }
 
+  // Fetch notifications from backend
+  const fetchNotifications = async () => {
+    try {
+      const loggedInUserId = userId || 1;
+      const response = await fetch(`http://localhost:8080/api/v1/notification/user/${loggedInUserId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserNotifications(Array.isArray(data) ? data : data.data || []);
+        
+        // Check for QUEUE CALLED notification (sent as SUCCESS type)
+        const notificationData = Array.isArray(data) ? data : data.data || [];
+        const calledNotification = notificationData.find(n => (n.type === 'SUCCESS' && n.title === 'Time Ready') && !n.isRead);
+        if (calledNotification) {
+          setSuccessMessage('Your time is ready! Please come to the counter now.');
+          // Refresh queue data to show updated status
+          setTimeout(() => fetchQueueData(), 500);
+        }
+        
+        // Check for QUEUE DELETED notification (sent as ALERT type)
+        const deletedNotification = notificationData.find(n => (n.type === 'ALERT' && n.title === 'Queue Removed') && !n.isRead);
+        if (deletedNotification) {
+          setError('Your queue has been removed from the system.');
+          setQueueData({
+            token: '--',
+            service: 'Queue Removed',
+            location: '--',
+            position: '--',
+            totalInQueue: '--',
+            estimatedWaitTime: '--',
+            status: 'removed',
+            joinedTime: '--',
+            currentServing: '--',
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  }
+
   // Fetch data on component mount or when userId/queueToken changes
   useEffect(() => {
     fetchQueueData();
+    
+    // Set up polling for notifications and queue updates
+    const interval = setInterval(() => {
+      fetchQueueData();
+      fetchNotifications();
+    }, 3000); // Poll every 3 seconds
+    
+    setPollInterval(interval);
+    
+    // Fetch initial notifications
+    fetchNotifications();
+    
+    // Cleanup interval on unmount
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [userId, queueToken]);
-
-  const notifications = [
-    { id: 1, message: 'Your turn is coming up! Be ready.', time: '5 min ago', type: 'warning' },
-    { id: 2, message: 'Counter 2 is now available', time: '2 min ago', type: 'info' },
-    { id: 3, message: 'Queue delay: +5 minutes', time: '10 min ago', type: 'alert' },
-  ]
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'waiting':
+      case 'WAITING':
         return 'text-blue-400'
       case 'called':
+      case 'CALLED':
         return 'text-green-400'
-      case 'locked':
+      case 'removed':
+      case 'CANCELLED':
         return 'text-red-400'
+      case 'completed':
+      case 'COMPLETED':
+        return 'text-green-400'
       default:
         return 'text-slate-400'
     }
@@ -192,10 +250,16 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
   const getStatusBg = (status) => {
     switch (status) {
       case 'waiting':
+      case 'WAITING':
         return 'bg-blue-600/20 border-blue-500/30'
       case 'called':
+      case 'CALLED':
         return 'bg-green-600/20 border-green-500/30'
-      case 'locked':
+      case 'completed':
+      case 'COMPLETED':
+        return 'bg-green-600/20 border-green-500/30'
+      case 'removed':
+      case 'CANCELLED':
         return 'bg-red-600/20 border-red-500/30'
       default:
         return 'bg-slate-600/20 border-slate-500/30'
@@ -264,6 +328,14 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
             </div>
           )}
 
+          {/* Queue Removed Message */}
+          {queueData.status === 'removed' && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-red-600/20 to-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center gap-3">
+              <AlertCircle size={20} />
+              <span className="font-semibold">{error || 'Your queue has been removed from the system.'}</span>
+            </div>
+          )}
+
           {/* No Queue Message */}
           {queueData.status === 'no_queue' && (
             <div className="flex flex-col items-center justify-center min-h-96 text-center">
@@ -282,10 +354,25 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
           )}
 
           {/* Queue Details (Only show if user has an active queue) */}
-          {queueData.status !== 'no_queue' && (
+          {queueData.status !== 'no_queue' && queueData.status !== 'removed' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Tracking */}
             <div className="lg:col-span-2 space-y-6">
+              {/* CALLED Alert Banner */}
+              {(queueData.status === 'called' || queueData.status === 'CALLED') && (
+                <div className="bg-gradient-to-r from-green-600/30 to-emerald-600/30 border-2 border-green-500/50 rounded-2xl p-6 animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="text-4xl">🔔</div>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-green-300 mb-1">Your Time is Ready!</h3>
+                      <p className="text-green-200">Please proceed to the counter now for your service.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Token Card */}
               <div className="bg-gradient-to-br from-[#1a2f4a] to-[#1a1f3a] border border-blue-500/20 rounded-2xl p-8">
                 <p className="text-slate-400 text-sm mb-2">Your Token</p>
@@ -422,21 +509,37 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
                   Notifications
                 </h3>
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`p-3 rounded-lg border ${
-                        notif.type === 'warning'
-                          ? 'bg-amber-600/10 border-amber-500/20'
-                          : notif.type === 'info'
-                          ? 'bg-blue-600/10 border-blue-500/20'
-                          : 'bg-red-600/10 border-red-500/20'
-                      }`}
-                    >
-                      <p className="text-xs font-semibold text-slate-300">{notif.message}</p>
-                      <p className="text-xs text-slate-500 mt-1">{notif.time}</p>
+                  {userNotifications && userNotifications.length > 0 ? (
+                    userNotifications.map((notif) => {
+                      const isCalledNotif = notif.type === 'SUCCESS' && notif.title === 'Time Ready';
+                      const isDeletedNotif = notif.type === 'ALERT' && notif.title === 'Queue Removed';
+                      return (
+                        <div
+                          key={notif.notificationId || notif.id}
+                          className={`p-3 rounded-lg border ${
+                            isCalledNotif
+                              ? 'bg-green-600/10 border-green-500/20'
+                              : isDeletedNotif
+                              ? 'bg-red-600/10 border-red-500/20'
+                              : notif.type === 'SUCCESS'
+                              ? 'bg-emerald-600/10 border-emerald-500/20'
+                              : notif.type === 'WARNING'
+                              ? 'bg-amber-600/10 border-amber-500/20'
+                              : notif.type === 'ALERT'
+                              ? 'bg-red-600/10 border-red-500/20'
+                              : 'bg-blue-600/10 border-blue-500/20'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-slate-300">{notif.message}</p>
+                          <p className="text-xs text-slate-500 mt-1">{notif.createdAt ? new Date(notif.createdAt).toLocaleString() : 'Just now'}</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-slate-400">No notifications yet</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
