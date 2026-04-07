@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react'
 
 export default function Sidebar({ 
@@ -29,6 +30,7 @@ export default function Sidebar({
   onLogout
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const menuItems = [
     { name: 'Overview', icon: LayoutDashboard, page: 'dashboard' },
@@ -58,6 +60,19 @@ export default function Sidebar({
     } else if (page === 'settings') {
       onNavigateToSettings()
     }
+  }
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false)
+    onLogout()
+  }
+
+  const handleCancelLogout = () => {
+    setShowLogoutConfirm(false)
   }
 
   return (
@@ -128,7 +143,7 @@ export default function Sidebar({
               <p className="text-xs text-slate-500">User</p>
             </div>
           </div>
-          <button onClick={onLogout} className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-all border border-red-500/20 hover:border-red-500/40 font-medium text-sm">
+          <button onClick={handleLogoutClick} className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-all border border-red-500/20 hover:border-red-500/40 font-medium text-sm">
             <LogOut size={16} />
             Logout
           </button>
@@ -143,6 +158,40 @@ export default function Sidebar({
         >
           <Menu size={20} className="text-slate-300" />
         </button>
+      )}
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <div className="bg-[#1a1f3a] border border-[#2a3060] rounded-lg shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-600/20 rounded-lg flex items-center justify-center">
+                  <AlertCircle size={24} className="text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Confirm Logout</h3>
+                  <p className="text-sm text-slate-400">Are you sure?</p>
+                </div>
+              </div>
+              <p className="text-slate-300 text-sm mb-6">You will be logged out from your account. Are you sure you want to continue?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelLogout}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 hover:text-white transition-all border border-slate-600/30 hover:border-slate-600/50 font-medium text-sm"
+                >
+                  Cancel (Stay)
+                </button>
+                <button
+                  onClick={handleConfirmLogout}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 hover:text-red-300 transition-all border border-red-500/30 hover:border-red-500/50 font-medium text-sm"
+                >
+                  Confirm Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -7,7 +7,50 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false)
+  const [pendingUserData, setPendingUserData] = useState(null)
   const googleInitializedRef = useRef(false)
+
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault()
+    if (!phoneNumber.trim()) {
+      alert('Please enter your phone number')
+      return
+    }
+
+    try {
+      // Update user profile with phone number
+      const updateRes = await fetch('http://localhost:8080/api/v1/user', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: pendingUserData.userId,
+          fullName: pendingUserData.fullName,
+          email: pendingUserData.email,
+          phone: phoneNumber
+        })
+      })
+
+      if (updateRes.ok) {
+        console.log('✅ Phone number updated successfully')
+        setShowPhonePrompt(false)
+        // Proceed with login
+        onLoginSuccess({
+          userId: pendingUserData.userId,
+          email: pendingUserData.email,
+          fullName: pendingUserData.fullName,
+          token: pendingUserData.token,
+          phone: phoneNumber
+        })
+      } else {
+        alert('Failed to save phone number. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error updating phone:', error)
+      alert('Failed to save phone number')
+    }
+  }
 
   const handleGoogleSuccess = async (response) => {
     try {
@@ -31,13 +74,15 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
         localStorage.setItem('userId', result.data.userId)
         localStorage.setItem('fullName', result.data.fullName)
 
-        // Call success callback
-        onLoginSuccess({
+        // Show phone number prompt
+        setPendingUserData({
           userId: result.data.userId,
           email: result.data.email,
           fullName: result.data.fullName,
           token: result.data.token
         })
+        setShowPhonePrompt(true)
+        setPhoneNumber('')
       } else {
         alert('Authentication failed: ' + result.message)
       }
@@ -128,6 +173,42 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 right-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
+
+      {/* Phone Number Prompt Modal */}
+      {showPhonePrompt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-[#1a1f3a] border border-[#2a3060] rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-2">Complete Your Profile</h2>
+            <p className="text-slate-400 mb-6">Please provide your phone number to receive SMS queue notifications</p>
+            
+            <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">Phone Number</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl">📱</span>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+94779649968"
+                    className="w-full bg-[#0a0e27] border border-[#2a3060] text-white text-sm rounded-xl pl-12 pr-4 py-3 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-2">Format: +94779649968 or +94 77 964 9968</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 mt-6"
+              >
+                {isLoading ? 'Saving...' : 'Save & Continue'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-md">

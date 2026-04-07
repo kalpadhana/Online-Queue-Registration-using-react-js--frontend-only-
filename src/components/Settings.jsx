@@ -107,6 +107,9 @@ export default function Settings({ userName, userId, ...otherProps }) {
         throw new Error('Failed to update profile');
       }
       
+      // Store phone number in localStorage for quick access
+      localStorage.setItem('userPhone', accountSettings.phone);
+      
       setSaved(true)
       setEditingProfile(false)
       setTimeout(() => setSaved(false), 3000)

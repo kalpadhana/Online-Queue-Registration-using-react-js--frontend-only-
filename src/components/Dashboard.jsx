@@ -72,6 +72,22 @@ export default function Dashboard({ userId, email, userName, onNavigateToJoinQue
             }))
           }
 
+          // Fetch user profile to get phone number
+          if (userName) {
+            try {
+              const profileResponse = await fetch(`http://localhost:8080/api/v1/user/profile?name=${encodeURIComponent(userName)}`)
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json()
+                const userProfile = profileData.data || profileData
+                if (userProfile.phone && userProfile.phone.trim()) {
+                  localStorage.setItem('userPhone', userProfile.phone);
+                }
+              }
+            } catch (err) {
+              console.error("Error fetching user profile:", err)
+            }
+          }
+
           // Fetch notifications for user
           const notifResponse = await fetch(`http://localhost:8080/api/v1/notification/user/${userId}`)
           if (notifResponse.ok) {
@@ -93,7 +109,7 @@ export default function Dashboard({ userId, email, userName, onNavigateToJoinQue
     const interval = setInterval(fetchData, 5000)
     
     return () => clearInterval(interval)
-  }, [userId])
+  }, [userId, userName])
 
   const statsList = [
     { label: 'Active Queues', value: stats.activeQueuesCount, icon: '📊' },
@@ -141,6 +157,25 @@ export default function Dashboard({ userId, email, userName, onNavigateToJoinQue
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
           <div className="p-8">
             <div className="max-w-7xl mx-auto space-y-8">
+              {/* Phone Number Missing Alert */}
+              {!localStorage.getItem('userPhone') && (
+                <div className="bg-gradient-to-r from-orange-600/20 to-yellow-600/20 border border-orange-500/50 rounded-xl p-5 flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <AlertCircle size={24} className="text-orange-400 flex-shrink-0 mt-1" />
+                    <div>
+                      <h3 className="font-bold text-white mb-1">📱 Add Your Phone Number</h3>
+                      <p className="text-sm text-slate-300">You haven't added a phone number to your profile yet. Add it now to receive SMS notifications when your queue is called!</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={onNavigateToSettings}
+                    className="px-4 py-2 bg-orange-600/30 hover:bg-orange-600/40 border border-orange-500/50 rounded-lg text-orange-300 text-sm font-semibold transition-all flex-shrink-0"
+                  >
+                    Go to Settings
+                  </button>
+                </div>
+              )}
+
               {/* Notifications Section */}
               {visibleNotifications.length > 0 && (
                 <div className="space-y-3">
