@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { Settings as SettingsIcon, Bell, Lock, Palette, Globe, HelpCircle, LogOut, ToggleRight, Save, Moon, Sun } from 'lucide-react'
 import Sidebar from './Sidebar'
 
-export default function Settings({ userName, ...otherProps }) {
-  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings } = otherProps;
+export default function Settings({ userName, userId, ...otherProps }) {
+  const { onNavigateToDashboard, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout } = otherProps;
+  const { theme, toggleTheme } = useTheme();
   const [accountSettings, setAccountSettings] = useState({
     name: userName || '',
     email: '',
@@ -16,19 +18,18 @@ export default function Settings({ userName, ...otherProps }) {
   useEffect(() => {
     const fetchAccountData = async () => {
       try {
-        // You can pass the userName or a User ID if you have one.
-        // For example, if your backend expects an email or uses a session token:
-        // We will send 'userName' as a query parameter for this example.
-        const response = await fetch(`http://localhost:8080/api/users/profile?name=${encodeURIComponent(userName)}`);
+        const response = await fetch(`http://localhost:8080/api/v1/user/profile?name=${encodeURIComponent(userName)}`);
         if (response.ok) {
-          const data = await response.json();
+          const apiResponse = await response.json();
+          // Handle APIResponse wrapper
+          const data = apiResponse.data || apiResponse;
           setAccountSettings(prev => ({
             ...prev,
-            name: data.name || prev.name,
+            name: data.fullName || prev.name,
             email: data.email || '',
             phone: data.phone || '',
-            branch: data.branch || '',
-            memberSince: data.memberSince || ''
+            branch: data.preferredBranchName || '',
+            memberSince: data.memberSince ? new Date(data.memberSince).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
           }));
         }
       } catch (error) {
@@ -57,6 +58,14 @@ export default function Settings({ userName, ...otherProps }) {
     autoRefresh: true,
   })
 
+  // Sync preferences with theme context on mount
+  useEffect(() => {
+    setPreferences(prev => ({
+      ...prev,
+      theme: theme
+    }))
+  }, [theme])
+
   const [privacy, setPrivacy] = useState({
     profilePublic: false,
     allowDataCollection: true,
@@ -82,10 +91,16 @@ export default function Settings({ userName, ...otherProps }) {
   const handleSaveProfile = async () => {
     try {
       // Send the updated account settings to the backend
-      const response = await fetch('http://localhost:8080/api/users/profile/update', {
-        method: 'PUT', // or POST depending on your backend
+      const response = await fetch('http://localhost:8080/api/v1/user', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(accountSettings)
+        body: JSON.stringify({
+          userId: userId,
+          fullName: accountSettings.name,
+          email: accountSettings.email,
+          phone: accountSettings.phone,
+          password: '' // Don't send password on profile update
+        })
       });
       
       if (!response.ok) {
@@ -260,20 +275,20 @@ export default function Settings({ userName, ...otherProps }) {
                 <div>
                   <label className="text-sm text-slate-400 mb-2 block font-semibold">Theme</label>
                   <div className="flex gap-2">
-                    {[{ name: 'Dark', value: 'dark', icon: Moon }, { name: 'Light', value: 'light', icon: Sun }].map((theme) => {
-                      const Icon = theme.icon
+                    {[{ name: 'Dark', value: 'dark', icon: Moon }, { name: 'Light', value: 'light', icon: Sun }].map((themeOption) => {
+                      const Icon = themeOption.icon
                       return (
                         <button
-                          key={theme.value}
+                          key={themeOption.value}
                           className={`flex-1 py-2 px-3 rounded-lg border flex items-center justify-center gap-2 transition-all ${
-                            preferences.theme === theme.value
+                            preferences.theme === themeOption.value
                               ? 'bg-blue-600/20 border-blue-500/30 text-blue-300'
                               : 'bg-[#0a0e27] border-[#2a3060] text-slate-400 hover:text-white'
                           }`}
-                          onClick={() => setPreferences({ ...preferences, theme: theme.value })}
+                          onClick={() => toggleTheme(themeOption.value)}
                         >
                           <Icon size={16} />
-                          {theme.name}
+                          {themeOption.name}
                         </button>
                       )
                     })}

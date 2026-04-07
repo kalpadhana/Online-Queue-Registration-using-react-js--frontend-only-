@@ -7,13 +7,17 @@ import {
   Shield,
   Zap,
   Clock,
+  AlertCircle,
+  X,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 
-export default function Dashboard({ userId, email, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToDashboard, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout }) {
+export default function Dashboard({ userId, email, userName, onNavigateToJoinQueue, onNavigateToTrackQueue, onNavigateToDashboard, onNavigateToNotifications, onNavigateToAdminDashboard, onNavigateToPriorityQueue, onNavigateToSettings, onLogout }) {
   const [activeQueues, setActiveQueues] = useState([])
   const [userQueues, setUserQueues] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [dismissedNotifications, setDismissedNotifications] = useState(new Set())
   const [stats, setStats] = useState({
     activeQueuesCount: 0,
     avgWaitTime: '5 min',
@@ -67,6 +71,14 @@ export default function Dashboard({ userId, email, onNavigateToJoinQueue, onNavi
               completedQueues: queues.filter(q => q.status === 'COMPLETED').length
             }))
           }
+
+          // Fetch notifications for user
+          const notifResponse = await fetch(`http://localhost:8080/api/v1/notification/user/${userId}`)
+          if (notifResponse.ok) {
+            const notifData = await notifResponse.json()
+            const notifs = Array.isArray(notifData) ? notifData : (notifData.data || [])
+            setNotifications(notifs)
+          }
         }
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -90,9 +102,17 @@ export default function Dashboard({ userId, email, onNavigateToJoinQueue, onNavi
     { label: 'Your Queues', value: stats.userQueueCount, icon: '📍' },
   ]
 
+  const handleDismissNotification = (notificationId) => {
+    setDismissedNotifications(new Set([...dismissedNotifications, notificationId]))
+  }
+
+  // Filter out dismissed and read notifications
+  const visibleNotifications = notifications.filter(n => !dismissedNotifications.has(n.notificationId) && !n.isRead)
+
   return (
     <div className="flex h-screen bg-[#0a0e27] text-white">
       <Sidebar 
+        userName={userName}
         activePage="dashboard"
         onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToJoinQueue={onNavigateToJoinQueue}
@@ -121,6 +141,29 @@ export default function Dashboard({ userId, email, onNavigateToJoinQueue, onNavi
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
           <div className="p-8">
             <div className="max-w-7xl mx-auto space-y-8">
+              {/* Notifications Section */}
+              {visibleNotifications.length > 0 && (
+                <div className="space-y-3">
+                  {visibleNotifications.map((notification) => (
+                    <div key={notification.notificationId} className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/50 rounded-xl p-5 flex items-start justify-between gap-4 animate-pulse">
+                      <div className="flex items-start gap-4 flex-1">
+                        <AlertCircle size={24} className="text-blue-400 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-white mb-1">{notification.title}</h3>
+                          <p className="text-sm text-slate-200">{notification.message}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDismissNotification(notification.notificationId)}
+                        className="flex-shrink-0 p-2 hover:bg-blue-600/30 rounded-lg transition-all"
+                      >
+                        <X size={18} className="text-blue-300" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {statsList.map((stat, i) => (
                   <div key={i} className="group relative">

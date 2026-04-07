@@ -207,26 +207,16 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
     }
   }
 
-  // Fetch data on component mount or when userId/queueToken changes
+  // Fetch data on component mount
   useEffect(() => {
     fetchQueueData();
-    
-    // Set up polling for notifications and queue updates
-    const interval = setInterval(() => {
-      fetchQueueData();
-      fetchNotifications();
-    }, 3000); // Poll every 3 seconds
-    
-    setPollInterval(interval);
-    
-    // Fetch initial notifications
     fetchNotifications();
     
-    // Cleanup interval on unmount
+    // Cleanup on unmount
     return () => {
-      if (interval) clearInterval(interval);
+      // Cleanup any pending operations
     };
-  }, [userId, queueToken]);
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {

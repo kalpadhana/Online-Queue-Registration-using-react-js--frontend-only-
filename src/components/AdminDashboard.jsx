@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { Users, Zap, Settings, BarChart3, Plus, Search, Filter, Edit2, Trash2, Check, X, Eye, EyeOff, Clock, TrendingUp, RefreshCw, Download } from 'lucide-react'
 import Sidebar from './Sidebar'
 
@@ -74,38 +74,37 @@ function QueueManagement() {
   const [filterStatus, setFilterStatus] = useState('All')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({ 
     userId: '', email: '', status: 'WAITING', serviceId: '', branchId: '' 
   })
 
-  // Fetch queues from database
-  useEffect(() => {
-    fetchQueues()
-  }, [])
-
-  const fetchQueues = async () => {
+  const fetchQueues = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true)
+      if (showLoading) setLoading(true)
       const response = await fetch(`${API_BASE_URL}/queues`)
       const data = await response.json()
       let queuesData = data.data || data || []
       
-      // If API returns enriched data with service and branch objects, use it as-is
-      // Otherwise, the table will handle missing nested objects gracefully
       if (Array.isArray(queuesData)) {
         setQueues(queuesData)
       } else {
         setQueues([])
       }
+      setError('')
     } catch (err) {
       setError('Failed to fetch queues')
       console.error(err)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
-  }
+  }, [])
+
+  // Fetch queues ONLY on initial mount - NO FLICKERING
+  useEffect(() => {
+    fetchQueues(false)
+  }, [fetchQueues])
 
   const filtered = queues.filter(q => {
     const matchesSearch = q.token.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -198,7 +197,8 @@ function QueueManagement() {
     }
   }
 
-  if (loading) {
+  // Show loading only on initial load with no data
+  if (loading && queues.length === 0) {
     return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin" size={48} /></div>
   }
 
@@ -308,6 +308,8 @@ function QueueManagement() {
     </div>
   )
 }
+
+const QueueManagementMemo = memo(QueueManagement)
 
 // Customer Management Component
 function CustomerManagement() {
@@ -994,7 +996,7 @@ export default function AdminDashboard({ userName, ...otherProps }) {
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
           <div className="max-w-7xl mx-auto px-6 py-8">
             {activePage === 'dashboard' && <DashboardOverview stats={stats} loading={loading} />}
-            {activePage === 'queues' && <QueueManagement />}
+            {activePage === 'queues' && <QueueManagementMemo />}
             {activePage === 'customers' && <CustomerManagement />}
             {activePage === 'counters' && <CounterManagement />}
             {activePage === 'admins' && <AdminManagement />}
