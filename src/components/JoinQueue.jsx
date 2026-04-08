@@ -116,19 +116,36 @@ export default function JoinQueue({ userName, email, userId, onQueueJoined, onNa
         branchId: branchId
       };
 
+      // Get JWT token from localStorage
+      const jwtToken = localStorage.getItem('jwtToken');
+      
       // ✨ DEBUG LOGGING - Check what we're sending to backend ✨
       console.log("=== QUEUE JOIN REQUEST ===");
       console.log("Payload being sent to backend:", requestPayload);
       console.log("Email from user account:", email);
-      console.log("User ID:", requestPayload.userId);
+      console.log("User ID from state:", userId);
       console.log("Branch ID:", requestPayload.branchId);
       console.log("Service ID:", requestPayload.serviceId);
+      console.log("🔐 JWT Token from localStorage:", jwtToken ? "✅ Present" : "❌ Missing");
+      console.log("📍 Authorization Header will be:", jwtToken ? `Bearer ${jwtToken.substring(0, 20)}...` : "None");
       console.log("=== END DEBUG ===");
+
+      // Create headers with JWT authorization
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      if (jwtToken) {
+        headers["Authorization"] = `Bearer ${jwtToken}`;
+        console.log("✅ Added Authorization header with JWT token");
+      } else {
+        console.warn("⚠️ WARNING: No JWT token found in localStorage");
+      }
 
       // Send request to backend
       const response = await fetch("http://localhost:8080/api/v1/queues/join", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify(requestPayload),
       });
 
@@ -151,11 +168,18 @@ export default function JoinQueue({ userName, email, userId, onQueueJoined, onNa
 
       // Success! Parse the response
       const data = await response.json();
-      console.log("Queue join successful! Full Response:", data);
+      console.log("✅ Queue join successful! Full Response:", data);
       
       // Extract token from nested response structure (APIResponse<QueueDTO>)
       const queueData = data.data || data;
       const token = queueData.token || queueData.queueId || `Q-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      
+      console.log("=== QUEUE JOIN VERIFICATION ===");
+      console.log("✅ Queue token generated:", token);
+      console.log("📧 Email address for confirmation:", email);
+      console.log("👤 User ID used for join:", requestPayload.userId);
+      console.log("🔐 JWT token was sent: Yes");
+      console.log("=== Emails should be sent to:", email, "===");
       console.log("Extracted token:", token, "from queue data:", queueData);
       
       // Store email in localStorage for later retrieval by TrackQueue
@@ -233,12 +257,26 @@ export default function JoinQueue({ userName, email, userId, onQueueJoined, onNa
               </p>
             </div>
 
-            <button
-              onClick={onNavigateToDashboard}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-blue-500/50 transition-all"
-            >
-              Go to Dashboard
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  console.log("🎯 Navigating to Track Queue to view queue details");
+                  onNavigateToTrackQueue();
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-green-600 to-green-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-green-500/50 transition-all"
+              >
+                📍 Track Your Queue
+              </button>
+              <button
+                onClick={() => {
+                  console.log("🏠 Navigating to Dashboard");
+                  onNavigateToDashboard();
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              >
+                Go to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       </div>

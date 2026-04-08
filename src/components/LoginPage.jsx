@@ -153,12 +153,29 @@ export default function LoginPage({ onNavigateSignup, onLoginSuccess }) {
       setIsLoading(false)
       
       const userData = result.data || result;
+      
+      console.log('✅ LOGIN SUCCESSFUL');
+      console.log('📊 User Data from Backend:', userData);
+      
+      // Store JWT token in localStorage (critical for authenticated queue joins)
+      if (userData.token) {
+        localStorage.setItem('jwtToken', userData.token);
+        console.log('🔐 JWT token stored in localStorage');
+      }
+      
+      // Store userId in localStorage
+      if (userData.userId) {
+        localStorage.setItem('userId', userData.userId.toString());
+        console.log('👤 User ID stored in localStorage:', userData.userId);
+      }
+      
       // Store email in localStorage for persistent access
       localStorage.setItem('userEmail', email);
-      console.log("Stored email in localStorage:", email);
+      localStorage.setItem('email', email);
+      console.log('📧 Email stored in localStorage:', email);
       
       // Pass the fully authenticated user data with email to App.jsx
-      onLoginSuccess({ ...userData, email: email })
+      onLoginSuccess({ ...userData, email: email, token: userData.token })
     } catch (error) {
       console.error("Login failed:", error)
       alert("Failed to log in: " + error.message)

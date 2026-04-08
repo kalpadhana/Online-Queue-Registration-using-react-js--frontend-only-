@@ -61,12 +61,80 @@ export default function SignupPage({ onNavigateLogin, onSignupSuccess }) {
       setIsLoading(false)
       
       const userData = result.data || result;
-      // Store email in localStorage for persistent access
-      localStorage.setItem('userEmail', formData.email);
-      console.log("Stored email in localStorage:", formData.email);
       
-      // Pass user data with email to App.jsx
-      onSignupSuccess({ ...userData, name: formData.fullName, email: formData.email })
+      console.log('✅ SIGNUP SUCCESSFUL - User account created');
+      console.log('📊 User Data from Backend:', userData);
+      console.log('⚠️ NOTE: Signup endpoint does not return JWT token');
+      console.log('🔄 Auto-logging in to get JWT token...');
+      
+      // Automatically login to get JWT token
+      try {
+        const loginResponse = await fetch("http://localhost:8080/api/v1/user/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            email: formData.email, 
+            password: formData.password 
+          }),
+        });
+
+        if (loginResponse.ok) {
+          const loginResult = await loginResponse.json();
+          const loginData = loginResult.data || loginResult;
+          
+          console.log('✅ AUTO-LOGIN SUCCESSFUL after signup');
+          console.log('📊 Login Data:', loginData);
+          
+          // Store JWT token in localStorage
+          if (loginData.token) {
+            localStorage.setItem('jwtToken', loginData.token);
+            console.log('🔐 JWT token stored in localStorage after auto-login');
+          }
+          
+          // Store userId in localStorage
+          if (loginData.userId) {
+            localStorage.setItem('userId', loginData.userId.toString());
+            console.log('👤 User ID stored:', loginData.userId);
+          }
+          
+          // Store email
+          localStorage.setItem('userEmail', formData.email);
+          localStorage.setItem('email', formData.email);
+          console.log('📧 Email stored:', formData.email);
+          
+          // Pass combined data to App.jsx
+          console.log('✅ Complete user data ready for dashboard');
+          onSignupSuccess({ 
+            ...loginData, 
+            name: formData.fullName, 
+            email: formData.email, 
+            token: loginData.token,
+            userId: loginData.userId
+          });
+        } else {
+          console.warn('⚠️ Auto-login failed after signup');
+          // Still proceed with signup without JWT
+          localStorage.setItem('userEmail', formData.email);
+          localStorage.setItem('email', formData.email);
+          onSignupSuccess({ 
+            ...userData, 
+            name: formData.fullName, 
+            email: formData.email,
+            userId: userData.userId 
+          });
+        }
+      } catch (loginError) {
+        console.error('❌ Auto-login error:', loginError);
+        // Still proceed with signup without JWT
+        localStorage.setItem('userEmail', formData.email);
+        localStorage.setItem('email', formData.email);
+        onSignupSuccess({ 
+          ...userData, 
+          name: formData.fullName, 
+          email: formData.email,
+          userId: userData.userId 
+        });
+      }
     } catch (error) {
       console.error("Signup failed:", error)
       alert(`Failed to sign up: ${error.message}`)

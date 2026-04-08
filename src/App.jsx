@@ -96,47 +96,101 @@ export default function App() {
   }
 
   const handleLoginSuccess = (userData) => {
-    console.log("User logged in successfully:", userData);
+    console.log("✅ USER LOGIN SUCCESSFUL:", userData);
+    console.log('🔍 Processing login data and clearing previous user...');
     
-    // Clear previous user's data
+    // CRITICAL: Clear ALL previous user's data
+    console.log('🧹 Clearing previous/old user data...');
     setQueueToken(null)
+    setUserName('')
+    setEmail('')
+    setUserId(null)
     localStorage.removeItem('queueToken')
+    localStorage.removeItem('userName')
+    localStorage.removeItem('email')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userEmail')
+    console.log('✅ Previous user data cleared');
     
+    // Store JWT token if present
+    if (userData && userData.token) {
+      localStorage.setItem('jwtToken', userData.token);
+      console.log('🔐 JWT token stored');
+    }
+    
+    // Set NEW user data
     if (userData && (userData.name || userData.fullName)) {
       const name = userData.name || userData.fullName
       setUserName(name)
       localStorage.setItem('userName', name)
+      console.log('👤 Username:', name);
     }
     if (userData && userData.userId) {
       setUserId(userData.userId)
       localStorage.setItem('userId', userData.userId.toString())
+      console.log('🆔 User ID:', userData.userId);
     }
     if (userData && userData.email) {
       setEmail(userData.email)
       localStorage.setItem('email', userData.email)
+      localStorage.setItem('userEmail', userData.email);
+      console.log('📧 Email:', userData.email);
     }
+    console.log('✅ Login data processing complete');
+    console.log('📊 Logged In User Summary:');
+    console.log('  - User ID:', userData.userId);
+    console.log('  - Name:', userData.name || userData.fullName);
+    console.log('  - Email:', userData.email);
     setPage('dashboard')
   }
 
   const handleSignupSuccess = (userData) => {
-    console.log("User signed up successfully:", userData);
+    console.log("✅ NEW USER SIGNUP SUCCESSFUL:", userData);
+    console.log('🔍 Processing signup data and clearing previous user...');
     
-    // Clear previous user's data
+    // CRITICAL: Clear ALL previous user's data
+    console.log('🧹 Clearing previous user data from state and localStorage...');
     setQueueToken(null)
+    setUserName('')
+    setEmail('')
+    setUserId(null)
     localStorage.removeItem('queueToken')
+    localStorage.removeItem('userName')
+    localStorage.removeItem('email')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userEmail')
+    console.log('✅ Previous user data cleared');
     
+    // Store JWT token if present (CRITICAL for new users)
+    if (userData && userData.token) {
+      localStorage.setItem('jwtToken', userData.token);
+      console.log('🔐 JWT token stored for new user');
+    } else {
+      console.warn('⚠️ WARNING: No JWT token in signup response!');
+    }
+    
+    // Set NEW user data
     if (userData && userData.name) {
       setUserName(userData.name)
       localStorage.setItem('userName', userData.name)
+      console.log('👤 New Username:', userData.name);
     }
     if (userData && userData.userId) {
       setUserId(userData.userId)
       localStorage.setItem('userId', userData.userId.toString())
+      console.log('🆔 New User ID:', userData.userId);
     }
     if (userData && userData.email) {
       setEmail(userData.email)
       localStorage.setItem('email', userData.email)
+      localStorage.setItem('userEmail', userData.email);
+      console.log('📧 New Email:', userData.email);
     }
+    console.log('✅ New user data set complete');
+    console.log('📊 New User Summary:');
+    console.log('  - User ID:', userData.userId);
+    console.log('  - Name:', userData.name);
+    console.log('  - Email:', userData.email);
     setPage('dashboard')
   }
 

@@ -27,6 +27,7 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
   const fetchQueueData = async () => {
     setIsLoading(true);
     setError(null);
+    console.log('🔄 REFRESHING QUEUE DATA...');
     setQueueData({
       token: '--',
       service: 'Loading...',
@@ -42,11 +43,12 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
     try {
       // Use userId endpoint to get current user's active queue
       const loggedInUserId = userId || 1;
-      console.log("Fetching queue data for user ID:", loggedInUserId);
+      console.log("🔍 Fetching queue data for user ID:", loggedInUserId);
       const response = await fetch(`http://localhost:8080/api/v1/queues/user/${loggedInUserId}`);
       
       if (response.status === 404) {
-        console.log("No active queue found for user:", loggedInUserId);
+        console.log("❌ No active queue found for user:", loggedInUserId);
+        console.log("💬 User hasn't joined any queue yet");
         setQueueData({
           token: '--',
           service: 'No Queue',
@@ -78,7 +80,8 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
       const activeQueue = Array.isArray(queuesList) ? queuesList.find(q => q.status === 'WAITING' || q.status === 'waiting') : null;
       
       if (!Array.isArray(queuesList) || queuesList.length === 0 || !activeQueue) {
-        console.log("No active queue found for user " + loggedInUserId + ". User hasn't joined a queue yet.");
+        console.log("❌ No active queue found for user " + loggedInUserId + ". User hasn't joined a queue yet.");
+        console.log("📋 Queues returned from API:", queuesList);
         setQueueData({
           token: '--',
           service: 'No Queue',
@@ -99,11 +102,20 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
       // Get the active queue and fetch its full details using token
       const currentQueue = activeQueue;
       if (currentQueue.token) {
-        console.log("Found active queue token for user " + loggedInUserId + ": " + currentQueue.token);
+        console.log("✅ Found active queue token for user " + loggedInUserId + ": " + currentQueue.token);
         const detailsResponse = await fetch(`http://localhost:8080/api/v1/queues/details/${currentQueue.token}`);
         if (detailsResponse.ok) {
           const detailsData = await detailsResponse.json();
           const queueDetails = detailsData.data;
+          console.log('📊 QUEUE DETAILS FETCHED:');
+          console.log('  🎫 Token:', queueDetails.token);
+          console.log('  🏢 Service:', queueDetails.serviceName);
+          console.log('  📍 Location:', queueDetails.branchName);
+          console.log('  👥 Position in Queue:', queueDetails.position);
+          console.log('  ⏱️ Estimated Wait Time:', queueDetails.estimatedWaitTime, 'minutes');
+          console.log('  📝 Status:', queueDetails.status);
+          console.log('  🕐 Joined Time:', queueDetails.joinedTime);
+          
           setQueueData({
             token: queueDetails.token || '--',
             service: queueDetails.serviceName || 'N/A',
@@ -115,6 +127,7 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
             joinedTime: queueDetails.joinedTime ? new Date(queueDetails.joinedTime).toLocaleTimeString() : '--',
             currentServing: queueDetails.position > 0 ? `Q-${Math.floor(Math.random() * 1000)}` : '--',
           });
+          console.log('✅ Queue details successfully loaded and displayed');
           setError(null);
 
           // Fetch upcoming tokens from database
@@ -125,13 +138,14 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
           if (upcomingResponse.ok) {
             const upcomingData = await upcomingResponse.json();
             const tokens = upcomingData.data || [];
-            console.log("Upcoming tokens from database:", tokens);
+            console.log("📋 Upcoming tokens from database:", tokens);
             setUpcomingTokens(tokens);
           } else {
             setUpcomingTokens(['--', '--', '--', '--', '--']);
           }
         } else {
           // If details fetch fails, use basic queue data from list
+          console.warn('⚠️ Failed to fetch queue details, using basic data');
           setQueueData({
             token: currentQueue.token || '--',
             service: 'Service',
@@ -148,7 +162,8 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
       }
 
     } catch (err) {
-      console.error("Error fetching tracking data:", err);
+      console.error("❌ Error fetching tracking data:", err);
+      console.error("📍 Error details:", err.message);
       setError(err.message);
       setQueueData({
         token: '--',
@@ -207,8 +222,43 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
     }
   }
 
-  // Fetch data on component mount
+  // Fetch data on component mount AND when userId changes (user switched)
   useEffect(() => {
+    console.log('📍 TRACK QUEUE PAGE LOADED OR USER SWITCHED');
+    console.log('👤 User ID:', userId);
+    console.log('📧 User Email:', email);
+    console.log('👤 User Name:', userName);
+    console.log('🎫 Queue Token from props:', queueToken);
+    
+    // Check if user data from localStorage matches current props
+    const storedUserId = localStorage.getItem('userId');
+    const storedEmail = localStorage.getItem('email');
+    
+    if (storedUserId && userId && parseInt(storedUserId) !== userId) {
+      console.warn('⚠️ USER MISMATCH DETECTED - Different user was here before!');
+      console.log('  Previous localStorage userId:', storedUserId);
+      console.log('  Current props userId:', userId);
+      console.log('  🧹 Resetting queue display for new user...');
+    }
+    
+    // Reset queue data for new user FIRST
+    console.log('🧹 Clearing previous queue data for new user...');
+    setQueueData({
+      token: '--',
+      service: 'Loading...',
+      location: 'Loading...',
+      position: 0,
+      totalInQueue: 0,
+      estimatedWaitTime: '--',
+      status: 'waiting',
+      joinedTime: '--',
+      currentServing: '--',
+    });
+    setUpcomingTokens([]);
+    setError(null);
+    
+    // Now fetch the correct user's queue data
+    console.log('📥 Fetching new user queue data...');
     fetchQueueData();
     fetchNotifications();
     
@@ -216,7 +266,7 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
     return () => {
       // Cleanup any pending operations
     };
-  }, []);
+  }, [userId]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -259,6 +309,23 @@ export default function TrackQueue({ userName, email, userId, queueToken, onNavi
   // Safely calculate progress ensuring we don't divide by zero
   const maxQueueSize = Math.max(queueData.totalInQueue || 1, queueData.position || 1);
   const progress = Math.max(0, Math.min(100, ((maxQueueSize - (queueData.position || 0)) / maxQueueSize) * 100));
+
+  // Log queue details when they change
+  useEffect(() => {
+    if (queueData.token !== '--') {
+      console.log('📍 QUEUE TRACKING DETAILS DISPLAYED:');
+      console.log('├─ 🎫 Token:', queueData.token);
+      console.log('├─ 🏢 Service:', queueData.service);
+      console.log('├─ 📍 Location:', queueData.location);
+      console.log('├─ 👥 Your Position:', queueData.position);
+      console.log('├─ ⏱️ Estimated Wait:', queueData.estimatedWaitTime);
+      console.log('├─ 📊 Total in Queue:', queueData.totalInQueue);
+      console.log('├─ 🎯 Progress:', `${Math.round(progress)}%`);
+      console.log('├─ 📝 Status:', queueData.status);
+      console.log('├─ 🕐 Joined Time:', queueData.joinedTime);
+      console.log('└─ 🏪 Now Serving:', queueData.currentServing);
+    }
+  }, [queueData.token, queueData.service, queueData.position]);
 
   const handleEnableNotifications = () => {
     setNotificationsEnabled(true);
