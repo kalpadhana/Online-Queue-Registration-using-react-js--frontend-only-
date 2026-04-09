@@ -11,6 +11,7 @@ import NotificationsPage from './components/NotificationsPage'
 import AdminDashboard from './components/AdminDashboard'
 import PriorityQueue from './components/PriorityQueue'
 import Settings from './components/Settings'
+import AdminAuthModal from './components/AdminAuthModal'
 
 export default function App() {
   const [page, setPage] = useState('splash')
@@ -18,6 +19,7 @@ export default function App() {
   const [userName, setUserName] = useState("")
   const [userId, setUserId] = useState(null)
   const [queueToken, setQueueToken] = useState(null)
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false)
   
   // New Customer Form State
   const [name, setName] = useState("");
@@ -213,7 +215,16 @@ export default function App() {
   }
 
   const handleNavigateToAdminDashboard = () => {
+    setShowAdminAuthModal(true)
+  }
+
+  const handleAdminAuthSuccess = () => {
+    setShowAdminAuthModal(false)
     setPage('admin')
+  }
+
+  const handleAdminAuthCancel = () => {
+    setShowAdminAuthModal(false)
   }
 
   const handleNavigateToPriorityQueue = () => {
@@ -248,67 +259,157 @@ export default function App() {
   }
 
   if (page === 'splash') {
-    return <SplashScreen onGetStarted={handleGetStarted} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <SplashScreen onGetStarted={handleGetStarted} />
+      </>
+    )
   }
 
   if (page === 'login') {
     return (
-      <LoginPage
-        onNavigateSignup={handleSignupClick}
-        onLoginSuccess={handleLoginSuccess}
-      />
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <LoginPage
+          onNavigateSignup={handleSignupClick}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      </>
     )
   }
 
   if (page === 'signup') {
     return (
-      <SignupPage
-        onNavigateLogin={handleLoginClick}
-        onSignupSuccess={handleSignupSuccess}
-      />
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <SignupPage
+          onNavigateLogin={handleLoginClick}
+          onSignupSuccess={handleSignupSuccess}
+        />
+      </>
     )
   }
 
   if (page === 'dashboard') {
-    return <Dashboard 
-      userId={userId}
-      email={email}
-      userName={userName} 
-      onNavigateToJoinQueue={handleNavigateToJoinQueue} 
-      onNavigateToTrackQueue={handleNavigateToTrackQueue} 
-      onNavigateToDashboard={handleNavigateToDashboard} 
-      onNavigateToNotifications={handleNavigateToNotifications} 
-      onNavigateToAdminDashboard={handleNavigateToAdminDashboard} 
-      onNavigateToPriorityQueue={handleNavigateToPriorityQueue} 
-      onNavigateToSettings={handleNavigateToSettings}
-      onLogout={handleLogout}
-    />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <Dashboard 
+          userId={userId}
+          email={email}
+          userName={userName} 
+          onNavigateToJoinQueue={handleNavigateToJoinQueue} 
+          onNavigateToTrackQueue={handleNavigateToTrackQueue} 
+          onNavigateToDashboard={handleNavigateToDashboard} 
+          onNavigateToNotifications={handleNavigateToNotifications} 
+          onNavigateToAdminDashboard={handleNavigateToAdminDashboard} 
+          onNavigateToPriorityQueue={handleNavigateToPriorityQueue} 
+          onNavigateToSettings={handleNavigateToSettings}
+          onLogout={handleLogout}
+        />
+      </>
+    )
   }
 
   if (page === 'joinQueue') {
-    return <JoinQueue userName={userName} email={email} userId={userId} onQueueJoined={handleQueueJoined} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <JoinQueue userName={userName} email={email} userId={userId} onQueueJoined={handleQueueJoined} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
   if (page === 'trackQueue') {
-    return <TrackQueue userName={userName} email={email} userId={userId} queueToken={queueToken} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <TrackQueue userName={userName} email={email} userId={userId} queueToken={queueToken} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
 
 
   if (page === 'notifications') {
-    return <NotificationsPage userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <NotificationsPage userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
   if (page === 'admin') {
-    return <AdminDashboard userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        <AdminDashboard userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
   if (page === 'priorityQueue') {
-    return <PriorityQueue userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <PriorityQueue userName={userName} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
   if (page === 'settings') {
-    return <Settings userName={userName} userId={userId} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+    return (
+      <>
+        {showAdminAuthModal && (
+          <AdminAuthModal
+            onSuccess={handleAdminAuthSuccess}
+            onCancel={handleAdminAuthCancel}
+          />
+        )}
+        <Settings userName={userName} userId={userId} onNavigateToDashboard={handleNavigateToDashboard} onNavigateToJoinQueue={handleNavigateToJoinQueue} onNavigateToTrackQueue={handleNavigateToTrackQueue} onNavigateToNotifications={handleNavigateToNotifications} onNavigateToAdminDashboard={handleNavigateToAdminDashboard} onNavigateToPriorityQueue={handleNavigateToPriorityQueue} onNavigateToSettings={handleNavigateToSettings} onLogout={handleLogout} />
+      </>
+    )
   }
 
   if (page === 'addCustomer') {

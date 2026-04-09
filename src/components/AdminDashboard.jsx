@@ -77,7 +77,7 @@ function QueueManagement() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({ 
-    userId: '', email: '', status: 'WAITING', serviceId: '', branchId: '' 
+    userId: '', email: '', status: 'WAITING', serviceId: '', branchId: '', isPriority: false 
   })
 
   const fetchQueues = useCallback(async (showLoading = true) => {
@@ -105,6 +105,50 @@ function QueueManagement() {
   useEffect(() => {
     fetchQueues(false)
   }, [fetchQueues])
+
+  const handleAddQueue = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/queues`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      if (response.ok) {
+        await fetchQueues(false)
+        setFormData({ userId: '', email: '', status: 'WAITING', serviceId: '', branchId: '', isPriority: false })
+        setShowForm(false)
+        setError('')
+      } else {
+        setError('Failed to create queue')
+      }
+    } catch (err) {
+      setError('Error creating queue')
+      console.error(err)
+    }
+  }
+
+  const handleTogglePriority = async (queueId, currentPriority) => {
+    try {
+      const queue = queues.find(q => q.queueId === queueId)
+      if (!queue) return
+
+      const updatedQueue = { ...queue, isPriority: !currentPriority }
+      const response = await fetch(`${API_BASE_URL}/queues/${queueId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedQueue)
+      })
+
+      if (response.ok) {
+        setQueues(queues.map(q => q.queueId === queueId ? updatedQueue : q))
+      } else {
+        setError('Failed to update queue priority')
+      }
+    } catch (err) {
+      setError('Error updating queue')
+      console.error(err)
+    }
+  }
 
   const filtered = queues.filter(q => {
     const matchesSearch = q.token.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -206,6 +250,78 @@ function QueueManagement() {
     <div className="space-y-6">
       {error && <div className="bg-red-600/20 border border-red-500/30 text-red-300 rounded-lg p-4">{error}</div>}
       
+      {/* Add Queue Button */}
+      <button
+        onClick={() => setShowForm(true)}
+        className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg flex items-center gap-2 transition-all"
+      >
+        <Plus size={18} />
+        Add New Queue
+      </button>
+
+      {/* Add Queue Form */}
+      {showForm && (
+        <div className="bg-[#1a1f3a] border border-[#2a3060] rounded-xl p-6 space-y-4">
+          <h3 className="text-lg font-bold text-white">Create New Queue</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="email"
+              placeholder="User Email"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="bg-[#0a0e27] border border-[#2a3060] rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50"
+            />
+            <input
+              type="number"
+              placeholder="Service ID"
+              value={formData.serviceId}
+              onChange={(e) => setFormData({...formData, serviceId: e.target.value})}
+              className="bg-[#0a0e27] border border-[#2a3060] rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50"
+            />
+            <input
+              type="number"
+              placeholder="Branch ID"
+              value={formData.branchId}
+              onChange={(e) => setFormData({...formData, branchId: e.target.value})}
+              className="bg-[#0a0e27] border border-[#2a3060] rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50"
+            />
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({...formData, status: e.target.value})}
+              className="bg-[#0a0e27] border border-[#2a3060] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500/50"
+            >
+              <option value="WAITING">Waiting</option>
+              <option value="CALLED">Called</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.isPriority}
+              onChange={(e) => setFormData({...formData, isPriority: e.target.checked})}
+              className="w-4 h-4 rounded"
+            />
+            <span className="text-white font-medium">Mark as Priority Queue</span>
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={handleAddQueue}
+              className="flex-1 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded-lg transition-all font-medium"
+            >
+              Create Queue
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="flex-1 px-4 py-2 bg-slate-600/20 hover:bg-slate-600/30 border border-slate-500/30 text-slate-300 rounded-lg transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex gap-3 flex-1">
@@ -251,6 +367,7 @@ function QueueManagement() {
               <th className="text-left py-3 px-4 text-slate-400 font-semibold">Branch</th>
               <th className="text-left py-3 px-4 text-slate-400 font-semibold">User Email</th>
               <th className="text-left py-3 px-4 text-slate-400 font-semibold">Est. Wait Time</th>
+              <th className="text-left py-3 px-4 text-slate-400 font-semibold">Priority</th>
               <th className="text-left py-3 px-4 text-slate-400 font-semibold">Status</th>
               <th className="text-center py-3 px-4 text-slate-400 font-semibold">Actions</th>
             </tr>
@@ -271,12 +388,31 @@ function QueueManagement() {
                 </td>
                 <td className="py-3 px-4 text-yellow-300">{queue.estimatedWaitTime || '--'} min</td>
                 <td className="py-3 px-4">
+                  {queue.isPriority ? (
+                    <span className="px-3 py-1 border rounded-lg text-xs font-semibold bg-purple-600/20 border-purple-500/30 text-purple-300 flex items-center gap-1 w-fit">
+                      <Zap size={14} />
+                      Priority
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 border rounded-lg text-xs font-semibold bg-slate-600/20 border-slate-500/30 text-slate-400">
+                      Regular
+                    </span>
+                  )}
+                </td>
+                <td className="py-3 px-4">
                   <span className={`px-3 py-1 border rounded-lg text-xs font-semibold ${getStatusColor(queue.status)}`}>
                     {queue.status}
                   </span>
                 </td>
                 <td className="py-3 px-4 text-center">
                   <div className="flex items-center justify-center gap-2">
+                    <button 
+                      onClick={() => handleTogglePriority(queue.queueId, queue.isPriority)}
+                      className={`px-2 py-1 border rounded text-xs font-semibold transition-all ${queue.isPriority ? 'bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30' : 'bg-yellow-600/20 border-yellow-500/30 text-yellow-300 hover:bg-yellow-600/30'}`}
+                      title={queue.isPriority ? 'Remove priority' : 'Mark as priority'}
+                    >
+                      {queue.isPriority ? '⭐ Remove' : '☆ Mark'}
+                    </button>
                     <button onClick={() => handleDelete(queue.queueId)} className="text-red-400 hover:text-red-300 transition-all" title="Delete Queue">
                       <Trash2 size={16} />
                     </button>
@@ -577,6 +713,134 @@ function CounterManagement() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// Priority Queue Management Component
+function PriorityQueueManagement() {
+  const [priorityQueues, setPriorityQueues] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchPriorityQueues()
+  }, [])
+
+  const fetchPriorityQueues = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`${API_BASE_URL}/queues`)
+      const data = await response.json()
+      const queues = data.data || data || []
+      
+      // Filter only priority queues
+      const filtered = queues.filter(q => q.isPriority === true)
+      setPriorityQueues(filtered)
+      setError('')
+    } catch (err) {
+      setError('Failed to fetch priority queues')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRemovePriority = async (queueId) => {
+    try {
+      const queue = priorityQueues.find(q => q.queueId === queueId)
+      if (!queue) return
+
+      const updatedQueue = { ...queue, isPriority: false }
+      const response = await fetch(`${API_BASE_URL}/queues/${queueId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedQueue)
+      })
+
+      if (response.ok) {
+        setPriorityQueues(priorityQueues.filter(q => q.queueId !== queueId))
+      } else {
+        setError('Failed to remove priority status')
+      }
+    } catch (err) {
+      setError('Error updating queue')
+      console.error(err)
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin" size={48} /></div>
+  }
+
+  return (
+    <div className="space-y-6">
+      {error && <div className="bg-red-600/20 border border-red-500/30 text-red-300 rounded-lg p-4">{error}</div>}
+      
+      {/* Priority Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-purple-600/10 to-purple-600/10 border border-purple-500/20 rounded-xl p-4">
+          <p className="text-2xl mb-2">⭐</p>
+          <p className="text-xs text-slate-500 mb-1 font-semibold uppercase">Total Priority Queues</p>
+          <p className="text-3xl font-bold text-white">{priorityQueues.length}</p>
+        </div>
+        <div className="bg-gradient-to-br from-blue-600/10 to-blue-600/10 border border-blue-500/20 rounded-xl p-4">
+          <p className="text-2xl mb-2">⏳</p>
+          <p className="text-xs text-slate-500 mb-1 font-semibold uppercase">Currently Waiting</p>
+          <p className="text-3xl font-bold text-white">{priorityQueues.filter(q => q.status === 'WAITING').length}</p>
+        </div>
+        <div className="bg-gradient-to-br from-green-600/10 to-green-600/10 border border-green-500/20 rounded-xl p-4">
+          <p className="text-2xl mb-2">✅</p>
+          <p className="text-xs text-slate-500 mb-1 font-semibold uppercase">Being Served</p>
+          <p className="text-3xl font-bold text-white">{priorityQueues.filter(q => q.status === 'CALLED').length}</p>
+        </div>
+      </div>
+
+      {/* Priority Queues List */}
+      {priorityQueues.length === 0 ? (
+        <div className="bg-[#1a1f3a] border border-[#2a3060] rounded-xl p-8 text-center">
+          <p className="text-2xl mb-2">🎟️</p>
+          <p className="text-slate-400">No priority queues at the moment</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {priorityQueues.map((queue) => (
+            <div key={queue.queueId} className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/30 rounded-xl p-6 hover:shadow-lg transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="text-purple-400" size={20} />
+                    <h3 className="text-xl font-bold text-white">{queue.token}</h3>
+                  </div>
+                  <p className="text-slate-400 text-sm">Position #{queue.position}</p>
+                </div>
+                <span className={`px-3 py-1 border rounded-lg text-xs font-semibold ${
+                  queue.status === 'WAITING' ? 'bg-yellow-600/20 border-yellow-500/30 text-yellow-300' :
+                  queue.status === 'CALLED' ? 'bg-blue-600/20 border-blue-500/30 text-blue-300' :
+                  queue.status === 'COMPLETED' ? 'bg-green-600/20 border-green-500/30 text-green-300' :
+                  'bg-slate-600/20 border-slate-500/30 text-slate-300'
+                }`}>
+                  {queue.status}
+                </span>
+              </div>
+
+              <div className="space-y-2 mb-4 text-sm text-slate-300">
+                <p><span className="text-slate-500">Email:</span> {queue.user?.email || queue.email || 'N/A'}</p>
+                <p><span className="text-slate-500">Service:</span> {queue.service?.name || `#${queue.serviceId}` || 'N/A'}</p>
+                <p><span className="text-slate-500">Branch:</span> {queue.branch?.name || `#${queue.branchId}` || 'N/A'}</p>
+                <p><span className="text-slate-500">Est. Wait:</span> {queue.estimatedWaitTime || '--'} min</p>
+              </div>
+
+              <button
+                onClick={() => handleRemovePriority(queue.queueId)}
+                className="w-full px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-xs font-semibold transition-all"
+              >
+                Remove Priority Status
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -933,6 +1197,7 @@ export default function AdminDashboard({ userName, ...otherProps }) {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'queues', label: 'Queues', icon: Zap },
+    { id: 'priority', label: 'Priority Queues', icon: Zap },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'counters', label: 'Counters', icon: TrendingUp },
     { id: 'admins', label: 'Admins', icon: Users },
@@ -995,8 +1260,9 @@ export default function AdminDashboard({ userName, ...otherProps }) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0a0e27] to-[#0f1535]">
           <div className="max-w-7xl mx-auto px-6 py-8">
-            {activePage === 'dashboard' && <DashboardOverview stats={stats} loading={loading} />}
+          {activePage === 'dashboard' && <DashboardOverview stats={stats} loading={loading} />}
             {activePage === 'queues' && <QueueManagementMemo />}
+            {activePage === 'priority' && <PriorityQueueManagement />}
             {activePage === 'customers' && <CustomerManagement />}
             {activePage === 'counters' && <CounterManagement />}
             {activePage === 'admins' && <AdminManagement />}
